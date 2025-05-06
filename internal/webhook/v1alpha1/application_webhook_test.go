@@ -17,71 +17,147 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
+	"fmt"
+	"os"
+	"time"
+
+	argoprojv1alpha1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/dana-team/application-rbac-validator/internal/webhook/common"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	argoporjv1alpha1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
-	// TODO (user): Add any additional imports if needed
 )
 
-var _ = Describe("Application Webhook", func() {
-	var (
-		obj       *argoporjv1alpha1.Application
-		oldObj    *argoporjv1alpha1.Application
-		validator ApplicationCustomValidator
-		defaulter ApplicationCustomDefaulter
-	)
+var _ = Describe("application-rbac-validator Webhook", func() {
+	Context("On Application validation", func() {
+		ctx := context.Background()
 
-	BeforeEach(func() {
-		obj = &argoporjv1alpha1.Application{}
-		oldObj = &argoporjv1alpha1.Application{}
-		validator = ApplicationCustomValidator{}
-		Expect(validator).NotTo(BeNil(), "Expected validator to be initialized")
-		defaulter = ApplicationCustomDefaulter{}
-		Expect(defaulter).NotTo(BeNil(), "Expected defaulter to be initialized")
-		Expect(oldObj).NotTo(BeNil(), "Expected oldObj to be initialized")
-		Expect(obj).NotTo(BeNil(), "Expected obj to be initialized")
-		// TODO (user): Add any setup logic common to all tests
+		common.WebhookNamespacePath = webhookNamespaceTestPath
+
+		var testNamespace = ""
+
+		BeforeEach(func() {
+			validator = ApplicationCustomValidator{Client: k8sClient,
+				destinationClusterClient: NewMockedDestinationClusterClient()}
+
+			Expect(validator).NotTo(BeNil(), "Expected validator to be initialized")
+
+			resourceName := fmt.Sprintf("test-resource-%d", time.Now().UnixNano())
+			testNamespace = fmt.Sprintf("test-ns-%d", time.Now().UnixNano())
+			typeNamespacedName = types.NamespacedName{
+				Name:      resourceName,
+				Namespace: testNamespace,
+			}
+
+			By("creating the test namespace")
+			ns := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: typeNamespacedName.Namespace,
+				},
+			}
+			Expect(k8sClient.Create(ctx, ns)).To(Succeed())
+
+			By("creating a file that stores the webhook's current namespace name")
+			Expect(os.MkdirAll(webhookNamespaceDir, 0755)).To(Succeed())
+
+			Expect(os.WriteFile(webhookNamespaceTestPath, []byte(typeNamespacedName.Namespace), 0644)).To(Succeed())
+		})
+		AfterEach(func() {
+			By("cleaning up the test namespace")
+			ns := &corev1.Namespace{}
+			nsErr := k8sClient.Get(ctx, types.NamespacedName{Name: typeNamespacedName.Namespace}, ns)
+
+			if nsErr == nil || !errors.IsNotFound(nsErr) {
+				Expect(k8sClient.Delete(ctx, ns)).To(Succeed())
+			}
+
+			By("deleting the file that stores the webhook's current namespace name")
+			_ = os.Remove(webhookNamespaceTestPath)
+		})
+
+		Context("When creating and updating an Application", func() {
+			for _, tc := range testCases {
+				t := tc
+				It(t.name, func() {
+					By(fmt.Sprintf("Creating the Application for test: %s", t.name))
+					application := &argoprojv1alpha1.Application{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      typeNamespacedName.Name,
+							Namespace: typeNamespacedName.Namespace,
+						},
+						Spec: t.spec,
+					}
+
+					By("creating the argo instance ConfigMap for testing")
+					configMap := &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      common.ArgoInstanceConfigMapName,
+							Namespace: typeNamespacedName.Namespace,
+						},
+						Data: map[string]string{
+							t.argoInstanceUsersConfigMapKey: t.argoInstanceUsersConfigMapData,
+							t.argoInstanceNameConfigMapKey:  ArgoInstanceNameConfigMapData,
+						},
+					}
+					Expect(k8sClient.Create(ctx, configMap)).To(Succeed())
+
+					By("creating the ConfigMap that stores the destination server token")
+					tokenPath := common.FormatServerURL(t.serverTokenKey) + "-token"
+
+					configMap = &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      common.ClusterTokensConfigMapName,
+							Namespace: typeNamespacedName.Namespace,
+						},
+						Data: map[string]string{
+							tokenPath: "dummy-token-content",
+						},
+					}
+					Expect(k8sClient.Create(ctx, configMap)).To(Succeed())
+
+					if t.isBypassLabelExists {
+						By("adding bypass label to the Application's namespace")
+						ns := &corev1.Namespace{}
+						Expect(k8sClient.Get(ctx, types.NamespacedName{Name: testNamespace}, ns)).To(Succeed())
+
+						if ns.Labels == nil {
+							ns.Labels = make(map[string]string)
+						}
+						ns.Labels[common.AdminBypassLabel] = "true"
+
+						Expect(k8sClient.Update(ctx, ns)).To(Succeed())
+					}
+
+					if t.isManagementApplication {
+						By("creating management application with correct name")
+						application.Name = ArgoInstanceNameConfigMapData + "-mgmt"
+					}
+
+					By(fmt.Sprintf("starting create validation test: %s", t.name))
+					_, err := validator.ValidateCreate(ctx, application)
+
+					if !t.expectToSucceed {
+						Expect(err).To(HaveOccurred())
+					} else {
+						Expect(err).ToNot(HaveOccurred())
+					}
+
+					By(fmt.Sprintf("starting update validation test: %s", t.name))
+					_, err = validator.ValidateUpdate(ctx, application, application)
+
+					if !t.expectToSucceed {
+						Expect(err).To(HaveOccurred())
+					} else {
+						Expect(err).ToNot(HaveOccurred())
+					}
+				})
+			}
+		})
 	})
-
-	AfterEach(func() {
-		// TODO (user): Add any teardown logic common to all tests
-	})
-
-	Context("When creating Application under Defaulting Webhook", func() {
-		// TODO (user): Add logic for defaulting webhooks
-		// Example:
-		// It("Should apply defaults when a required field is empty", func() {
-		//     By("simulating a scenario where defaults should be applied")
-		//     obj.SomeFieldWithDefault = ""
-		//     By("calling the Default method to apply defaults")
-		//     defaulter.Default(ctx, obj)
-		//     By("checking that the default values are set")
-		//     Expect(obj.SomeFieldWithDefault).To(Equal("default_value"))
-		// })
-	})
-
-	Context("When creating or updating Application under Validating Webhook", func() {
-		// TODO (user): Add logic for validating webhooks
-		// Example:
-		// It("Should deny creation if a required field is missing", func() {
-		//     By("simulating an invalid creation scenario")
-		//     obj.SomeRequiredField = ""
-		//     Expect(validator.ValidateCreate(ctx, obj)).Error().To(HaveOccurred())
-		// })
-		//
-		// It("Should admit creation if all required fields are present", func() {
-		//     By("simulating an invalid creation scenario")
-		//     obj.SomeRequiredField = "valid_value"
-		//     Expect(validator.ValidateCreate(ctx, obj)).To(BeNil())
-		// })
-		//
-		// It("Should validate updates correctly", func() {
-		//     By("simulating a valid update scenario")
-		//     oldObj.SomeRequiredField = "updated_value"
-		//     obj.SomeRequiredField = "updated_value"
-		//     Expect(validator.ValidateUpdate(ctx, oldObj, obj)).To(BeNil())
-		// })
-	})
-
 })

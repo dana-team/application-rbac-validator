@@ -7,7 +7,7 @@
 ## Getting Started
 
 ### Prerequisites
-- go version v1.23.0+
+- go version v1.24.1.0+
 - docker version 17.03+.
 - kubectl version v1.11.3+.
 - Access to a Kubernetes v1.11.3+ cluster.
@@ -100,14 +100,14 @@ kubectl apply -f https://raw.githubusercontent.com/<org>/application-rbac-valida
 kubebuilder edit --plugins=helm/v1-alpha
 ```
 
-2. See that a chart was generated under 'dist/chart', and users
+2. See that a chart was generated under 'charts/application-rbac-validator', and users
 can obtain this solution from there.
 
 **NOTE:** If you change the project, you need to update the Helm Chart
 using the same command above to sync the latest changes. Furthermore,
 if you create webhooks, you need to use the above command with
 the '--force' flag and manually ensure that any custom configuration
-previously added to 'dist/chart/values.yaml' or 'dist/chart/manager/manager.yaml'
+previously added to 'charts/application-rbac-validator/values.yaml' or 'charts/application-rbac-validator/manager/manager.yaml'
 is manually re-applied afterwards.
 
 ## Contributing
