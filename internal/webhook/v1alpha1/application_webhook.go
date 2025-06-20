@@ -20,106 +20,144 @@ import (
 	"context"
 	"fmt"
 
-	argoporjv1alpha1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
+	argoprojv1alpha1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-)
 
-// nolint:unused
-// log is for logging in this package.
-var applicationlog = logf.Log.WithName("application-resource")
+	"github.com/dana-team/application-rbac-validator/internal/webhook/common"
+)
 
 // SetupApplicationWebhookWithManager registers the webhook for Application in the manager.
 func SetupApplicationWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&argoporjv1alpha1.Appl{}).
-		WithValidator(&ApplicationCustomValidator{}).
-		WithDefaulter(&ApplicationCustomDefaulter{}).
+	return ctrl.NewWebhookManagedBy(mgr).For(&argoprojv1alpha1.Application{}).
+		WithValidator(&ApplicationCustomValidator{Client: mgr.GetClient()}).
 		Complete()
 }
 
-// TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
+// +kubebuilder:rbac:groups="",resources=configmaps;namespaces,verbs=get;list;watch
+// +kubebuilder:webhook:path=/validate-argoproj-io-v1alpha1-application,mutating=false,failurePolicy=fail,sideEffects=None,groups=argoproj.io,resources=applications,verbs=create;update,versions=v1alpha1,name=vapplication-v1alpha1.kb.io,admissionReviewVersions=v1
 
-// +kubebuilder:webhook:path=/mutate-argoporj-io-v1alpha1-application,mutating=true,failurePolicy=fail,sideEffects=None,groups=argoporj.io,resources=applications,verbs=create;update,versions=v1alpha1,name=mapplication-v1alpha1.kb.io,admissionReviewVersions=v1
-
-// ApplicationCustomDefaulter struct is responsible for setting default values on the custom resource of the
-// Kind Application when those are created or updated.
-//
-// NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
-// as it is used only for temporary operations and does not need to be deeply copied.
-type ApplicationCustomDefaulter struct {
-	// TODO(user): Add more fields as needed for defaulting
-}
-
-var _ webhook.CustomDefaulter = &ApplicationCustomDefaulter{}
-
-// Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind Application.
-func (d *ApplicationCustomDefaulter) Default(ctx context.Context, obj runtime.Object) error {
-	application, ok := obj.(*argoporjv1alpha1.Application)
-
-	if !ok {
-		return fmt.Errorf("expected an Application object but got %T", obj)
-	}
-	applicationlog.Info("Defaulting for Application", "name", application.GetName())
-
-	// TODO(user): fill in your defaulting logic.
-
-	return nil
-}
-
-// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
-// Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
-// +kubebuilder:webhook:path=/validate-argoporj-io-v1alpha1-application,mutating=false,failurePolicy=fail,sideEffects=None,groups=argoporj.io,resources=applications,verbs=create;update,versions=v1alpha1,name=vapplication-v1alpha1.kb.io,admissionReviewVersions=v1
-
-// ApplicationCustomValidator struct is responsible for validating the Application resource
-// when it is created, updated, or deleted.
-//
-// NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
-// as this struct is used only for temporary operations and does not need to be deeply copied.
 type ApplicationCustomValidator struct {
-	// TODO(user): Add more fields as needed for validation
+	Client                   client.Client
+	destinationClusterClient kubernetes.Interface
 }
 
 var _ webhook.CustomValidator = &ApplicationCustomValidator{}
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type Application.
 func (v *ApplicationCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	application, ok := obj.(*argoporjv1alpha1.Application)
+	logger := logf.FromContext(ctx)
+	application, ok := obj.(*argoprojv1alpha1.Application)
 	if !ok {
 		return nil, fmt.Errorf("expected a Application object but got %T", obj)
 	}
-	applicationlog.Info("Validation for Application upon creation", "name", application.GetName())
+	logger.Info("Validation for Application upon creation", "name", application.GetName())
 
-	// TODO(user): fill in your validation logic upon object creation.
-
-	return nil, nil
+	return nil, validateApplication(ctx, v.Client, v.destinationClusterClient, application)
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type Application.
 func (v *ApplicationCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	application, ok := newObj.(*argoporjv1alpha1.Application)
+	logger := logf.FromContext(ctx)
+	application, ok := newObj.(*argoprojv1alpha1.Application)
 	if !ok {
 		return nil, fmt.Errorf("expected a Application object for the newObj but got %T", newObj)
 	}
-	applicationlog.Info("Validation for Application upon update", "name", application.GetName())
+	logger.Info("Validation for Application upon update", "name", application.GetName())
 
-	// TODO(user): fill in your validation logic upon object update.
-
-	return nil, nil
+	return nil, validateApplication(ctx, v.Client, v.destinationClusterClient, application)
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type Application.
 func (v *ApplicationCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	application, ok := obj.(*argoporjv1alpha1.Application)
-	if !ok {
-		return nil, fmt.Errorf("expected a Application object but got %T", obj)
-	}
-	applicationlog.Info("Validation for Application upon deletion", "name", application.GetName())
-
-	// TODO(user): fill in your validation logic upon object deletion.
-
 	return nil, nil
+}
+
+// validateApplication prevents unauthorized application deployments across clusters or namespaces.
+func validateApplication(ctx context.Context, k8sClient client.Client, destinationClusterClient kubernetes.Interface,
+	application *argoprojv1alpha1.Application) error {
+	logger := logf.FromContext(ctx)
+	destServer := application.Spec.Destination.Server
+	destNamespace := application.Spec.Destination.Namespace
+	appNamespace := application.GetNamespace()
+
+	if destNamespace == "" || destServer == "" {
+		return fmt.Errorf("destination namespace and server must be specified")
+	}
+
+	logger.Info("Checking if bypass label exists on the Application's namespace")
+
+	isBypassLabelExists, err := common.BypassLabelExists(ctx, k8sClient, appNamespace)
+	if err != nil {
+		return fmt.Errorf("failed to check bypass label on the Application's namespace: %w", err)
+	}
+	if isBypassLabelExists {
+		logger.Info("Application approved")
+		return nil
+	}
+
+	logger.Info("Checking if its a management Application")
+
+	argoInstanceName, err := common.FetchArgoInstanceName(ctx, k8sClient, appNamespace)
+	if err != nil {
+		return fmt.Errorf("failed to fetch Application's argo instance name: %w", err)
+	}
+
+	isManagementApplication := common.IsManagementApplication(argoInstanceName, application.Name)
+
+	if isManagementApplication {
+		logger.Info("Application approved")
+		return nil
+	}
+
+	logger.Info("Ensuring the Application's server and the destination server are not the same")
+
+	if common.IsInCluster(destServer) {
+		return fmt.Errorf("destination server must not be the same as the Application's current cluster")
+	}
+
+	logger.Info("Fetching the webhook's current namespace name")
+
+	currentNamespace, err := common.GetCurrentNamespace()
+	if err != nil {
+		return fmt.Errorf("failed to fetch the webhook's current namespace name: %w", err)
+	}
+
+	logger.Info("Fetching destination cluster token")
+
+	token, err := common.FetchClusterToken(ctx, k8sClient, currentNamespace, destServer)
+	if err != nil {
+		return fmt.Errorf("failed to fetch cluster token: %w", err)
+	}
+
+	logger.Info("Accessing destination cluster")
+
+	if destinationClusterClient == nil {
+		destinationClusterClient, err = common.BuildClusterClient(destServer, token)
+		if err != nil {
+			return fmt.Errorf("failed to build destination's cluster client: %w", err)
+		}
+	}
+
+	logger.Info("Fetching authorized administrators for the Application's target environment.")
+
+	admins, err := common.FetchArgoInstanceUsers(ctx, k8sClient, appNamespace)
+	if err != nil {
+		return fmt.Errorf("failed to fetch Application's admins: %w", err)
+	}
+
+	logger.Info("Validating namespace access for admins", "admins", admins, "namespace", destNamespace, "cluster", destServer)
+
+	if err := common.EnsureAnyAdminHasNamespaceAccess(ctx, destinationClusterClient, admins, destNamespace, destServer); err != nil {
+		return err
+	}
+
+	logger.Info("Application approved")
+
+	return nil
 }

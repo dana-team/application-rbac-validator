@@ -6,6 +6,7 @@ require (
 	github.com/argoproj/argo-cd/v3 v3.0.0
 	github.com/onsi/ginkgo/v2 v2.22.0
 	github.com/onsi/gomega v1.36.1
+	k8s.io/api v0.33.0
 	k8s.io/apimachinery v0.33.0
 	k8s.io/client-go v0.33.0
 	sigs.k8s.io/controller-runtime v0.20.4
@@ -101,7 +102,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/opencontainers/image-spec v1.1.0 // indirect
+	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pjbgf/sha1cd v0.3.2 // indirect
@@ -157,7 +158,6 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/api v0.33.0 // indirect
 	k8s.io/apiextensions-apiserver v0.32.2 // indirect
 	k8s.io/apiserver v0.33.0 // indirect
 	k8s.io/cli-runtime v0.33.0 // indirect
@@ -217,6 +217,7 @@ replace (
 	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.33.0
 	k8s.io/kubectl => k8s.io/kubectl v0.33.0
 	k8s.io/kubelet => k8s.io/kubelet v0.33.0
+	k8s.io/kubernetes => k8s.io/kubernetes v1.33.0
 	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.33.0
 	k8s.io/metrics => k8s.io/metrics v0.33.0
 	k8s.io/mount-utils => k8s.io/mount-utils v0.33.0
