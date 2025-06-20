@@ -3,7 +3,7 @@ module github.com/dana-team/application-rbac-validator
 go 1.24.1
 
 require (
-	github.com/argoproj/argo-cd/v3 v3.0.0
+	github.com/argoproj/argo-cd/v3 v3.0.4
 	github.com/onsi/ginkgo/v2 v2.22.0
 	github.com/onsi/gomega v1.36.1
 	k8s.io/api v0.33.0
@@ -26,7 +26,7 @@ require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProtonMail/go-crypto v1.1.5 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
-	github.com/argoproj/gitops-engine v0.7.1-0.20250314164314-7258614f5041 // indirect
+	github.com/argoproj/gitops-engine v0.7.1-0.20250520182409-89c110b5952e // indirect
 	github.com/argoproj/pkg v0.13.7-0.20250305113207-cbc37dc61de5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
@@ -67,7 +67,7 @@ require (
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
-	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
+	github.com/golang-jwt/jwt/v5 v5.2.2 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/cel-go v0.23.2 // indirect
