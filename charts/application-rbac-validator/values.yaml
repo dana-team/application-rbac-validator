@@ -23,7 +23,7 @@ controllerManager:
       # -- The repository of the manager container image.
       repository: controller
       # -- The tag of the manager container image.
-      tag: latest
+      tag: ""
     # -- Resource requests and limits for the manager container.
     resources:
       # -- CPU and memory limits for the manager container.

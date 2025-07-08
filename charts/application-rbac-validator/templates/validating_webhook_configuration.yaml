@@ -28,4 +28,4 @@ webhooks:
     - applications
   sideEffects: None
   namespaceSelector:
-  {{ - toYaml .Values.webhook.namespaceSelector | nindent 2 }}
+    {{- toYaml .Values.webhook.namespaceSelector | nindent 4 }}
