@@ -31,6 +31,8 @@ A Helm chart for the application-rbac-validator webhook.
 | metricsService.ports[0].protocol | string | `"TCP"` | The protocol used by the port (e.g., TCP, UDP, SCTP). |
 | metricsService.ports[0].targetPort | int | `8443` | The target port on the pods to which the service sends traffic. |
 | metricsService.type | string | `"ClusterIP"` | The type of service (e.g., ClusterIP, NodePort, LoadBalancer). |
+| webhook | object | `{"namespaceSelector":{}}` | Configuration for the webhook. |
+| webhook.namespaceSelector | object | `{}` | Namespace selector configuration for the validating webhook. |
 | webhookService | object | `{"ports":[{"port":443,"protocol":"TCP","targetPort":9443}],"type":"ClusterIP"}` | Configuration for the webhook service. |
 | webhookService.ports | list | `[{"port":443,"protocol":"TCP","targetPort":9443}]` | List of ports to expose for the webhook service. |
 | webhookService.ports[0].port | int | `443` | The port number exposed by the service. |
