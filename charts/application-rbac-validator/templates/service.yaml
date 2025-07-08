@@ -1,14 +1,14 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "chart.fullname" . }}-webhook-service
+  name: {{ include "application-rbac-validator.fullname" . }}-webhook-service
   labels:
-  {{- include "chart.labels" . | nindent 4 }}
+  {{- include "application-rbac-validator.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.webhookService.type }}
   selector:
     app.kubernetes.io/name: application-rbac-validator
     control-plane: controller-manager
-  {{- include "chart.selectorLabels" . | nindent 4 }}
+  {{- include "application-rbac-validator.selectorLabels" . | nindent 4 }}
   ports:
 	{{- .Values.webhookService.ports | toYaml | nindent 2 }}
