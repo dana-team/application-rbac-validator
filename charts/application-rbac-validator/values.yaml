@@ -2,19 +2,27 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
+# -- A mapping of destination server names to cluster access tokens used by the webhook.
+clusterTokens:
+  # -- Example entry for a destination server token.
+  example-destination-server-name-token: "<example_token>"
+
 # -- Configuration for the controller manager.
 controllerManager:
   # -- Manager-specific settings within the controller.
   manager:
     # -- Command-line arguments passed to the manager container.
     args:
+      - --metrics-bind-address=:8443
       - --leader-elect
       - --health-probe-bind-address=:8081
+      - --metrics-cert-path=/tmp/k8s-metrics-server/metrics-certs
+      - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
     # -- Container security context for the manager container.
     containerSecurityContext:
       # -- Specifies whether a process can gain more privileges than its parent.
       allowPrivilegeEscalation: false
-      # -- Capabilities to drop from the container. Dropping ALL removes all default capabilities.
+      # -- Linux capabilities to drop from the container.
       capabilities:
         drop:
           - ALL
