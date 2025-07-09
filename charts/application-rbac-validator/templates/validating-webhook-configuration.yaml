@@ -3,7 +3,7 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: {{ include "application-rbac-validator.fullname" . }}-validating-webhook-configuration
   annotations:
-    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "application-rbac-validator.fullname" . }}-
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "application-rbac-validator.fullname" . }}-serving-cert
   labels:
   {{- include "application-rbac-validator.labels" . | nindent 4 }}
 webhooks:

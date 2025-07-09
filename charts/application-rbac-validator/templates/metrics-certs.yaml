@@ -6,9 +6,10 @@ metadata:
   {{- include "application-rbac-validator.labels" . | nindent 4 }}
 spec:
   dnsNames:
-  - '{{ include "application-rbac-validator.fullname" . }}-SERVICE_NAME.SERVICE_NAMESPACE.svc'
-  - '{{ include "application-rbac-validator.fullname" . }}-SERVICE_NAME.SERVICE_NAMESPACE.svc.{{
-    .Values.kubernetesClusterDomain }}'
+  - '{{ include "application-rbac-validator.fullname" . }}-metrics-service.{{ .Release.Namespace
+    }}.svc'
+  - '{{ include "application-rbac-validator.fullname" . }}-metrics-service.{{ .Release.Namespace
+    }}.svc.{{ .Values.kubernetesClusterDomain }}'
   issuerRef:
     kind: Issuer
     name: '{{ include "application-rbac-validator.fullname" . }}-selfsigned-issuer'

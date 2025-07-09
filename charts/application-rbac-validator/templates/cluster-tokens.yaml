@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "application-rbac-validator.fullname" . }}-cluster-tokens
+  labels:
+  {{- include "application-rbac-validator.labels" . | nindent 4 }}
+data:
+  {{- range $key, $value := .Values.clusterTokens }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
