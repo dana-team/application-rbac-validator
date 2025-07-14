@@ -3,9 +3,12 @@ package common
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
+	"reflect"
 	"strings"
 
+	argoprojv1alpha1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 	authv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,6 +17,38 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// IsNotSpecUpdate checks if the only difference between the old and new Application objects is in their Status subresource.
+// It returns true if only the status has changed, false otherwise.
+func IsNotSpecUpdate(oldApp, newApp *argoprojv1alpha1.Application) bool {
+	return reflect.DeepEqual(oldApp.Spec, newApp.Spec)
+}
+
+// IsServerUrlFormatValid checks whether the given destServer is a full, valid server URL according to this format:
+// https://api.my-cluster.domain.example.com:port.
+func IsServerUrlFormatValid(destServer string) bool {
+	parsedUrl, err := url.Parse(destServer)
+	if err != nil || parsedUrl.Scheme != "https" {
+		return false
+	}
+
+	if !strings.HasPrefix(parsedUrl.Host, "api.") {
+		return false
+	}
+
+	hostParts := strings.Split(parsedUrl.Host, ":")
+	if len(hostParts) != 2 {
+		return false
+	}
+
+	return true
+}
+
+// BuildServerUrl constructs a full server URL from a partial cluster name according to this format:
+// https://api.my-cluster.domain.example.com:port.
+func BuildServerUrl(clusterName string) string {
+	return fmt.Sprintf("https://api.%s.%s:%s", clusterName, ServerUrlDomain, DefaultServerUrlPort)
+}
 
 // GetCurrentNamespace returns the current pod's namespace by reading the in-cluster service account namespace file.
 func GetCurrentNamespace() (string, error) {
@@ -102,13 +137,13 @@ func FetchArgoInstanceUsers(ctx context.Context, k8sClient client.Client, appNam
 		return nil, err
 	}
 
-	return strings.Split(value, "\n"), nil
+	return strings.Split(value, ","), nil
 }
 
 // FetchClusterToken fetches the token for the destination cluster.
 func FetchClusterToken(ctx context.Context, k8sClient client.Client, appNamespace string, serverURL string) (
 	string, error) {
-	configMapKey := FormatServerURL(serverURL) + "-token"
+	configMapKey := FormatFileSafeServerURL(serverURL) + "-token"
 
 	value, err := fetchConfigMapValue(ctx, k8sClient, appNamespace, ClusterTokensConfigMapName, configMapKey)
 	if err != nil {
@@ -118,15 +153,17 @@ func FetchClusterToken(ctx context.Context, k8sClient client.Client, appNamespac
 	return value, nil
 }
 
-// FormatServerURL converts a server URL string into a file-safe name by removing protocols and replacing
+// FormatFileSafeServerURL converts a server URL string into a file-safe name by removing protocols and replacing
 // special characters (e.g., ".", ":", "/") with hyphens ("-").
-func FormatServerURL(serverURL string) string {
+func FormatFileSafeServerURL(serverURL string) string {
 	protocolPrefixes := []string{"https://", "http://"}
 	var safeName strings.Builder
 
 	for _, prefix := range protocolPrefixes {
 		serverURL = strings.TrimPrefix(serverURL, prefix)
 	}
+
+	serverURL = strings.TrimPrefix(serverURL, "api.")
 
 	for _, ch := range serverURL {
 		switch ch {
@@ -169,8 +206,8 @@ func buildSubjectAccessReview(user, namespace string) *authv1.SubjectAccessRevie
 			User: user,
 			ResourceAttributes: &authv1.ResourceAttributes{
 				Namespace: namespace,
-				Verb:      AdminAccessLevel,
-				Resource:  AdminAccessLevel,
+				Verb:      "*",
+				Resource:  InstanceUsersAccessLevel,
 			},
 		},
 	}

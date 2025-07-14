@@ -49,8 +49,8 @@ controllerManager:
     # -- Annotations to add to the service account.
     annotations: {}
 
-# -- The Kubernetes cluster domain. Defaults to 'cluster.local'.
-kubernetesClusterDomain: cluster.local
+# -- The Kubernetes cluster domain.
+kubernetesClusterDomain: ""
 
 # -- Configuration for the metrics service.
 metricsService:

@@ -39,6 +39,7 @@ var _ = Describe("application-rbac-validator Webhook", func() {
 		ctx := context.Background()
 
 		common.WebhookNamespacePath = webhookNamespaceTestPath
+		common.ServerUrlDomain = "domain.example.com"
 
 		var testNamespace = ""
 
@@ -108,7 +109,7 @@ var _ = Describe("application-rbac-validator Webhook", func() {
 					Expect(k8sClient.Create(ctx, configMap)).To(Succeed())
 
 					By("creating the ConfigMap that stores the destination server token")
-					tokenPath := common.FormatServerURL(t.serverTokenKey) + "-token"
+					tokenPath := common.FormatFileSafeServerURL(t.serverTokenKey) + "-token"
 
 					configMap = &corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
@@ -149,7 +150,15 @@ var _ = Describe("application-rbac-validator Webhook", func() {
 					}
 
 					By(fmt.Sprintf("starting update validation test: %s", t.name))
-					_, err = validator.ValidateUpdate(ctx, application, application)
+					oldApplication := &argoprojv1alpha1.Application{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      typeNamespacedName.Name,
+							Namespace: typeNamespacedName.Namespace,
+						},
+						Spec: argoprojv1alpha1.ApplicationSpec{Project: "an empty application"},
+					}
+
+					_, err = validator.ValidateUpdate(ctx, oldApplication, application)
 
 					if !t.expectToSucceed {
 						Expect(err).To(HaveOccurred())
