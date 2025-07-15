@@ -25,7 +25,7 @@ A Helm chart for the application-rbac-validator webhook.
 | controllerManager.replicas | int | `1` | The number of replicas for the controller manager deployment. |
 | controllerManager.serviceAccount | object | `{"annotations":{}}` | Service account configuration for the controller manager. |
 | controllerManager.serviceAccount.annotations | object | `{}` | Annotations to add to the service account. |
-| kubernetesClusterDomain | string | `"cluster.local"` | The Kubernetes cluster domain. Defaults to 'cluster.local'. |
+| kubernetesClusterDomain | string | `""` | The Kubernetes cluster domain. |
 | metricsService | object | `{"ports":[{"name":"https","port":8443,"protocol":"TCP","targetPort":8443}],"type":"ClusterIP"}` | Configuration for the metrics service. |
 | metricsService.ports | list | `[{"name":"https","port":8443,"protocol":"TCP","targetPort":8443}]` | List of ports to expose for the metrics service. |
 | metricsService.ports[0].name | string | `"https"` | The name of the port. |

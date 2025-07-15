@@ -64,13 +64,23 @@ func (v *ApplicationCustomValidator) ValidateCreate(ctx context.Context, obj run
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type Application.
 func (v *ApplicationCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	logger := logf.FromContext(ctx)
-	application, ok := newObj.(*argoprojv1alpha1.Application)
+	newApplication, ok := newObj.(*argoprojv1alpha1.Application)
 	if !ok {
 		return nil, fmt.Errorf("expected a Application object for the newObj but got %T", newObj)
 	}
-	logger.Info("Validation for Application upon update", "name", application.GetName())
+	oldApplication, ok := oldObj.(*argoprojv1alpha1.Application)
+	if !ok {
+		return nil, fmt.Errorf("expected a Application object for the oldObj but got %T", oldObj)
+	}
 
-	return nil, validateApplication(ctx, v.Client, v.destinationClusterClient, application)
+	logger.Info("Validation for Application upon update", "name", newApplication.GetName())
+
+	if common.IsNotSpecUpdate(oldApplication, newApplication) {
+		logger.Info("Only a status update, approving automatically.")
+		return nil, nil
+	}
+
+	return nil, validateApplication(ctx, v.Client, v.destinationClusterClient, newApplication)
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type Application.
@@ -88,6 +98,10 @@ func validateApplication(ctx context.Context, k8sClient client.Client, destinati
 
 	if destNamespace == "" || destServer == "" {
 		return fmt.Errorf("destination namespace and server must be specified")
+	}
+
+	if common.ServerUrlDomain == "" {
+		return fmt.Errorf("SERVER_DOMAIN env variable must be specified in the Application's container")
 	}
 
 	logger.Info("Checking if bypass label exists on the Application's namespace")
@@ -126,6 +140,12 @@ func validateApplication(ctx context.Context, k8sClient client.Client, destinati
 	currentNamespace, err := common.GetCurrentNamespace()
 	if err != nil {
 		return fmt.Errorf("failed to fetch the webhook's current namespace name: %w", err)
+	}
+
+	logger.Info("Building destination Server url")
+
+	if !common.IsServerUrlFormatValid(destServer) {
+		destServer = common.BuildServerUrl(destServer)
 	}
 
 	logger.Info("Fetching destination cluster token")

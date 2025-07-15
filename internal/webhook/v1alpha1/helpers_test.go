@@ -18,10 +18,11 @@ import (
 const (
 	testDestinationNamespace              = "test-namespace"
 	bypassDestinationNamespace            = "bypass-namespace"
-	testDestinationServerUrl              = "https://dana-team-server-example.hcp.westeurope.example.io:443"
+	testDestinationServerUrl              = "https://api.my-cluster.domain.example.com:" + common.DefaultServerUrlPort
+	testDestinationServerName             = "my-cluster"
 	errorTokenServerUrl                   = "error-token-server"
-	argoInstanceUsersConfigMapData        = "admin1\nadmin2\nadmin3"
-	invalidArgoInstanceUsersConfigMapData = "admin2\nadmin3\nadmin4"
+	argoInstanceUsersConfigMapData        = "admin1,admin2,admin3"
+	invalidArgoInstanceUsersConfigMapData = "admin2,admin3,admin4"
 	ArgoInstanceNameConfigMapData         = "argo-instance-name"
 	invalidArgoInstanceUsersConfigMapKey  = "not-users"
 	invalidArgoInstanceNameConfigMapKey   = "not-project-name"
@@ -58,7 +59,7 @@ var testCases = []struct {
 		spec: argoprojv1alpha1.ApplicationSpec{
 			Destination: argoprojv1alpha1.ApplicationDestination{
 				Namespace: testDestinationNamespace,
-				Server:    testDestinationServerUrl,
+				Server:    testDestinationServerName,
 			},
 		},
 		argoInstanceNameConfigMapKey:  invalidArgoInstanceNameConfigMapKey,
@@ -80,7 +81,7 @@ var testCases = []struct {
 		spec: argoprojv1alpha1.ApplicationSpec{
 			Destination: argoprojv1alpha1.ApplicationDestination{
 				Namespace: testDestinationNamespace,
-				Server:    testDestinationServerUrl,
+				Server:    testDestinationServerName,
 			},
 		},
 		serverTokenKey:                errorTokenServerUrl,
@@ -92,7 +93,7 @@ var testCases = []struct {
 		spec: argoprojv1alpha1.ApplicationSpec{
 			Destination: argoprojv1alpha1.ApplicationDestination{
 				Namespace: testDestinationNamespace,
-				Server:    testDestinationServerUrl,
+				Server:    testDestinationServerName,
 			},
 		},
 		serverTokenKey:                 testDestinationServerUrl,
@@ -105,7 +106,7 @@ var testCases = []struct {
 		spec: argoprojv1alpha1.ApplicationSpec{
 			Destination: argoprojv1alpha1.ApplicationDestination{
 				Namespace: testDestinationNamespace,
-				Server:    testDestinationServerUrl,
+				Server:    testDestinationServerName,
 			},
 		},
 		serverTokenKey:                 testDestinationServerUrl,
@@ -115,6 +116,20 @@ var testCases = []struct {
 	},
 	{
 		name: "should allow valid Application",
+		spec: argoprojv1alpha1.ApplicationSpec{
+			Destination: argoprojv1alpha1.ApplicationDestination{
+				Namespace: testDestinationNamespace,
+				Server:    testDestinationServerName,
+			},
+		},
+		serverTokenKey:                 testDestinationServerUrl,
+		argoInstanceNameConfigMapKey:   common.ArgoInstanceNameConfigMapKey,
+		argoInstanceUsersConfigMapKey:  common.ArgoInstanceUsersConfigMapKey,
+		argoInstanceUsersConfigMapData: argoInstanceUsersConfigMapData,
+		expectToSucceed:                true,
+	},
+	{
+		name: "should allow valid Application with full destination server url",
 		spec: argoprojv1alpha1.ApplicationSpec{
 			Destination: argoprojv1alpha1.ApplicationDestination{
 				Namespace: testDestinationNamespace,
@@ -132,7 +147,7 @@ var testCases = []struct {
 		spec: argoprojv1alpha1.ApplicationSpec{
 			Destination: argoprojv1alpha1.ApplicationDestination{
 				Namespace: testDestinationNamespace,
-				Server:    testDestinationServerUrl,
+				Server:    testDestinationServerName,
 			},
 		},
 		argoInstanceNameConfigMapKey:  common.ArgoInstanceNameConfigMapKey,
@@ -145,7 +160,7 @@ var testCases = []struct {
 		spec: argoprojv1alpha1.ApplicationSpec{
 			Destination: argoprojv1alpha1.ApplicationDestination{
 				Namespace: testDestinationNamespace,
-				Server:    testDestinationServerUrl,
+				Server:    testDestinationServerName,
 			},
 		},
 		argoInstanceNameConfigMapKey:  common.ArgoInstanceNameConfigMapKey,
@@ -161,7 +176,7 @@ func NewMockedDestinationClusterClient() *fake.Clientset {
 
 	client.Fake.PrependReactor("create", "subjectaccessreviews", func(action testing.Action) (bool, runtime.Object, error) {
 		sar := action.(testing.CreateAction).GetObject().(*authv1.SubjectAccessReview)
-		if sar.Spec.User == strings.Split(argoInstanceUsersConfigMapData, "\n")[0] {
+		if sar.Spec.User == strings.Split(argoInstanceUsersConfigMapData, ",")[0] {
 			return true, &authv1.SubjectAccessReview{
 				Status: authv1.SubjectAccessReviewStatus{Allowed: true},
 			}, nil
