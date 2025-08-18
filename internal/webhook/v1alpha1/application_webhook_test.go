@@ -122,7 +122,7 @@ var _ = Describe("application-rbac-validator Webhook", func() {
 					}
 					Expect(k8sClient.Create(ctx, configMap)).To(Succeed())
 
-					if t.isBypassLabelExists {
+					if t.bypassLabel != "" {
 						By("adding bypass label to the Application's namespace")
 						ns := &corev1.Namespace{}
 						Expect(k8sClient.Get(ctx, types.NamespacedName{Name: testNamespace}, ns)).To(Succeed())
@@ -130,7 +130,7 @@ var _ = Describe("application-rbac-validator Webhook", func() {
 						if ns.Labels == nil {
 							ns.Labels = make(map[string]string)
 						}
-						ns.Labels[common.AdminBypassLabel] = "true"
+						ns.Labels[t.bypassLabel] = "true"
 
 						Expect(k8sClient.Update(ctx, ns)).To(Succeed())
 					}

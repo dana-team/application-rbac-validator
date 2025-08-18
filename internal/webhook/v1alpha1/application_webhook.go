@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	argoprojv1alpha1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
+	"github.com/dana-team/application-rbac-validator/internal/webhook/common"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -28,8 +29,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
-	"github.com/dana-team/application-rbac-validator/internal/webhook/common"
 )
 
 // SetupApplicationWebhookWithManager registers the webhook for Application in the manager.
@@ -76,7 +75,7 @@ func (v *ApplicationCustomValidator) ValidateUpdate(ctx context.Context, oldObj,
 	logger.Info("Validation for Application upon update", "name", newApplication.GetName())
 
 	if common.IsNotSpecUpdate(oldApplication, newApplication) {
-		logger.Info("Only a status update, approving automatically.")
+		logger.V(1).Info("Only a status update, approving automatically.")
 		return nil, nil
 	}
 
@@ -96,6 +95,10 @@ func validateApplication(ctx context.Context, k8sClient client.Client, destinati
 	destNamespace := application.Spec.Destination.Namespace
 	appNamespace := application.GetNamespace()
 
+	logger = logger.WithValues(
+		"destinationServer", destServer,
+	)
+
 	if destNamespace == "" || destServer == "" {
 		return fmt.Errorf("destination namespace and server must be specified")
 	}
@@ -106,7 +109,7 @@ func validateApplication(ctx context.Context, k8sClient client.Client, destinati
 
 	logger.Info("Checking if bypass label exists on the Application's namespace")
 
-	isBypassLabelExists, err := common.BypassLabelExists(ctx, k8sClient, appNamespace)
+	isBypassLabelExists, err := common.BypassLabelExists(ctx, k8sClient, appNamespace, common.ExtractClusterName(destServer))
 	if err != nil {
 		return fmt.Errorf("failed to check bypass label on the Application's namespace: %w", err)
 	}
@@ -144,7 +147,7 @@ func validateApplication(ctx context.Context, k8sClient client.Client, destinati
 
 	logger.Info("Building destination Server url")
 
-	if !common.IsServerUrlFormatValid(destServer) {
+	if !common.ValidateServerUrlFormat(destServer) {
 		destServer = common.BuildServerUrl(destServer)
 	}
 
@@ -171,7 +174,7 @@ func validateApplication(ctx context.Context, k8sClient client.Client, destinati
 		return fmt.Errorf("failed to fetch Application's admins: %w", err)
 	}
 
-	logger.Info("Validating namespace access for admins", "admins", admins, "namespace", destNamespace, "cluster", destServer)
+	logger.Info("Validating namespace access for account", "account", admins, "namespace", destNamespace, "cluster", destServer)
 
 	if err := common.EnsureAnyAdminHasNamespaceAccess(ctx, destinationClusterClient, admins, destNamespace, destServer); err != nil {
 		return err

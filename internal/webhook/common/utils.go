@@ -24,9 +24,9 @@ func IsNotSpecUpdate(oldApp, newApp *argoprojv1alpha1.Application) bool {
 	return reflect.DeepEqual(oldApp.Spec, newApp.Spec)
 }
 
-// IsServerUrlFormatValid checks whether the given destServer is a full, valid server URL according to this format:
+// ValidateServerUrlFormat checks whether the given destServer is a full, valid server URL according to this format:
 // https://api.my-cluster.domain.example.com:port.
-func IsServerUrlFormatValid(destServer string) bool {
+func ValidateServerUrlFormat(destServer string) bool {
 	parsedUrl, err := url.Parse(destServer)
 	if err != nil || parsedUrl.Scheme != "https" {
 		return false
@@ -42,6 +42,19 @@ func IsServerUrlFormatValid(destServer string) bool {
 	}
 
 	return true
+}
+
+// ExtractClusterName parses the destServer URL and returns the cluster name (e.g. "my-cluster")
+// if the URL is valid and matches the expected format.
+func ExtractClusterName(destServer string) string {
+	if ValidateServerUrlFormat(destServer) {
+		parsedUrl, _ := url.Parse(destServer)
+		host := parsedUrl.Hostname()
+		parts := strings.Split(host, ".")
+		return parts[1]
+	}
+
+	return destServer
 }
 
 // BuildServerUrl constructs a full server URL from a partial cluster name according to this format:
@@ -73,16 +86,40 @@ func IsManagementApplication(argoInstanceName, applicationName string) bool {
 // given namespace.
 func BypassLabelExists(ctx context.Context,
 	client client.Client,
-	namespace string) (bool, error) {
+	namespace, clusterName string) (bool, error) {
 	ns := &corev1.Namespace{}
 	err := client.Get(ctx, types.NamespacedName{Name: namespace}, ns)
 	if err != nil {
 		return false, fmt.Errorf("client failed to get Namespace %s: %w", namespace, err)
 	}
 
-	value, ok := ns.Labels[AdminBypassLabel]
+	return isBypassLabelValid(ns.Labels, clusterName), nil
+}
 
-	return ok && value == "true", nil
+// isBypassLabelValid checks if the given labels contain a valid AdminBypassLabel for the specified clusterName.
+func isBypassLabelValid(labels map[string]string, clusterName string) bool {
+	for key, value := range labels {
+		if strings.HasPrefix(key, AdminBypassLabel) && value == "true" {
+			suffix := strings.TrimPrefix(key, AdminBypassLabel)
+
+			switch suffix {
+			case "":
+				return true
+
+			case "-" + clusterName:
+				return true
+
+			case "-" + InClusterValues[0]:
+				for _, InClusterValue := range InClusterValues {
+					if clusterName == InClusterValue {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	return false
 }
 
 // IsInCluster checks if the given serverUrl equals any known in-cluster values (e.g., "in-cluster", "kubernetes.svc.cluster.local").
