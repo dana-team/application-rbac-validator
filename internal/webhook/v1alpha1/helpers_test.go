@@ -43,7 +43,7 @@ var testCases = []struct {
 	isManagementApplication        bool
 	argoInstanceUsersConfigMapKey  string
 	argoInstanceUsersConfigMapData string
-	isBypassLabelExists            bool
+	bypassLabel                    string
 	expectToSucceed                bool
 }{
 	{
@@ -143,7 +143,7 @@ var testCases = []struct {
 		expectToSucceed:                true,
 	},
 	{
-		name: "should allow valid Application with bypass label",
+		name: "should allow valid Application with general bypass label",
 		spec: argoprojv1alpha1.ApplicationSpec{
 			Destination: argoprojv1alpha1.ApplicationDestination{
 				Namespace: testDestinationNamespace,
@@ -152,7 +152,58 @@ var testCases = []struct {
 		},
 		argoInstanceNameConfigMapKey:  common.ArgoInstanceNameConfigMapKey,
 		argoInstanceUsersConfigMapKey: invalidArgoInstanceUsersConfigMapKey,
-		isBypassLabelExists:           true,
+		bypassLabel:                   common.AdminBypassLabel,
+		expectToSucceed:               true,
+	},
+	{
+		name: "should allow valid Application with specific destination bypass label",
+		spec: argoprojv1alpha1.ApplicationSpec{
+			Destination: argoprojv1alpha1.ApplicationDestination{
+				Namespace: testDestinationNamespace,
+				Server:    testDestinationServerName,
+			},
+		},
+		argoInstanceNameConfigMapKey:  common.ArgoInstanceNameConfigMapKey,
+		argoInstanceUsersConfigMapKey: invalidArgoInstanceUsersConfigMapKey,
+		bypassLabel:                   common.AdminBypassLabel + "-" + testDestinationServerName,
+		expectToSucceed:               true,
+	},
+	{
+		name: "should reject valid Application with wrong destination bypass label",
+		spec: argoprojv1alpha1.ApplicationSpec{
+			Destination: argoprojv1alpha1.ApplicationDestination{
+				Namespace: testDestinationNamespace,
+				Server:    testDestinationServerName,
+			},
+		},
+		argoInstanceNameConfigMapKey:  common.ArgoInstanceNameConfigMapKey,
+		argoInstanceUsersConfigMapKey: invalidArgoInstanceUsersConfigMapKey,
+		bypassLabel:                   common.AdminBypassLabel + "-not-my-cluster",
+	},
+	{
+		name: "should allow valid Application with in-cluster bypass label",
+		spec: argoprojv1alpha1.ApplicationSpec{
+			Destination: argoprojv1alpha1.ApplicationDestination{
+				Namespace: testDestinationNamespace,
+				Server:    common.InClusterValues[0],
+			},
+		},
+		argoInstanceNameConfigMapKey:  common.ArgoInstanceNameConfigMapKey,
+		argoInstanceUsersConfigMapKey: invalidArgoInstanceUsersConfigMapKey,
+		bypassLabel:                   common.AdminBypassLabel + "-" + common.InClusterValues[0],
+		expectToSucceed:               true,
+	},
+	{
+		name: "should allow valid Application with in-cluster bypass label when destination is kubernetes.svc.cluster.local",
+		spec: argoprojv1alpha1.ApplicationSpec{
+			Destination: argoprojv1alpha1.ApplicationDestination{
+				Namespace: testDestinationNamespace,
+				Server:    common.InClusterValues[1],
+			},
+		},
+		argoInstanceNameConfigMapKey:  common.ArgoInstanceNameConfigMapKey,
+		argoInstanceUsersConfigMapKey: invalidArgoInstanceUsersConfigMapKey,
+		bypassLabel:                   common.AdminBypassLabel + "-" + common.InClusterValues[0],
 		expectToSucceed:               true,
 	},
 	{
