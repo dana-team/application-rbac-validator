@@ -228,23 +228,34 @@ func BuildClusterClient(serverURL, token string) (kubernetes.Interface, error) {
 
 // isNamespaceAdmin checks if the user has admin access to a namespace.
 func isNamespaceAdmin(ctx context.Context, client kubernetes.Interface, user, namespace string) (bool, error) {
-	res, err := client.AuthorizationV1().SubjectAccessReviews().Create(ctx, buildSubjectAccessReview(user, namespace), metav1.CreateOptions{})
-	if err != nil {
-		return false, fmt.Errorf("SubjectAccessReview failed: %w", err)
+	for _, verb := range InstanceUsersAccessLevelVerbs {
+		res, err := client.AuthorizationV1().SubjectAccessReviews().Create(
+			ctx,
+			buildSubjectAccessReview(user, namespace, verb),
+			metav1.CreateOptions{},
+		)
+
+		if err != nil {
+			return false, fmt.Errorf("SubjectAccessReview failed: %w", err)
+		}
+
+		if !res.Status.Allowed {
+			return false, nil
+		}
 	}
 
-	return res.Status.Allowed, nil
+	return true, nil
 }
 
 // buildSubjectAccessReview creates a SubjectAccessReview.
-func buildSubjectAccessReview(user, namespace string) *authv1.SubjectAccessReview {
+func buildSubjectAccessReview(user, namespace, verb string) *authv1.SubjectAccessReview {
 	return &authv1.SubjectAccessReview{
 		Spec: authv1.SubjectAccessReviewSpec{
 			User: user,
 			ResourceAttributes: &authv1.ResourceAttributes{
 				Namespace: namespace,
-				Verb:      "*",
-				Resource:  InstanceUsersAccessLevel,
+				Verb:      verb,
+				Resource:  InstanceUsersAccessLevelResource,
 			},
 		},
 	}
