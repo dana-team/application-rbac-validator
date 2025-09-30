@@ -280,3 +280,28 @@ func EnsureAnyAdminHasNamespaceAccess(
 	}
 	return fmt.Errorf("no users have admin access to namespace %s in cluster %s", namespace, cluster)
 }
+
+// FetchSecretFromApplication retrieves the secret associated with the destination cluster of the given Application.
+func FetchSecretFromApplication(ctx context.Context, k8sClient client.Client, app *argoprojv1alpha1.Application) (*corev1.Secret, error) {
+	destination := app.Spec.Destination.Server
+	secretName := fmt.Sprintf("%s.%s-cluster-tokentoken", destination, ServerUrlDomain)
+	secret := &corev1.Secret{}
+	err := k8sClient.Get(ctx, types.NamespacedName{Name: secretName, Namespace: app.Namespace}, secret)
+	return secret, err
+}
+
+func GetNamespacesList(secret *corev1.Secret) []string {
+	namespacesRaw, ok := secret.Data[NamespaceKey]
+	var namespaceList []string
+	if !ok {
+		namespaceList = []string{}
+	} else {
+		namespacesStr := string(namespacesRaw)
+		if namespacesStr == "" {
+			namespaceList = []string{}
+		} else {
+			namespaceList = strings.Split(namespacesStr, ",")
+		}
+	}
+	return namespaceList
+}

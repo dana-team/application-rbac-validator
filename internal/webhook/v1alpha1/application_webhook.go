@@ -21,7 +21,7 @@ import (
 	"fmt"
 
 	argoprojv1alpha1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
-	"github.com/dana-team/application-rbac-validator/internal/webhook/common"
+	"github.com/dana-team/application-rbac-validator/internal/common"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"

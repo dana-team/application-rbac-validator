@@ -23,12 +23,11 @@ import (
 	"time"
 
 	argoprojv1alpha1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
+	common2 "github.com/dana-team/application-rbac-validator/internal/common"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-
-	"github.com/dana-team/application-rbac-validator/internal/webhook/common"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -38,8 +37,8 @@ var _ = Describe("application-rbac-validator Webhook", func() {
 	Context("On Application validation", func() {
 		ctx := context.Background()
 
-		common.WebhookNamespacePath = webhookNamespaceTestPath
-		common.ServerUrlDomain = "domain.example.com"
+		common2.WebhookNamespacePath = webhookNamespaceTestPath
+		common2.ServerUrlDomain = "domain.example.com"
 
 		var testNamespace = ""
 
@@ -98,7 +97,7 @@ var _ = Describe("application-rbac-validator Webhook", func() {
 					By("creating the argo instance ConfigMap for testing")
 					configMap := &corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      common.ArgoInstanceConfigMapName,
+							Name:      common2.ArgoInstanceConfigMapName,
 							Namespace: typeNamespacedName.Namespace,
 						},
 						Data: map[string]string{
@@ -109,11 +108,11 @@ var _ = Describe("application-rbac-validator Webhook", func() {
 					Expect(k8sClient.Create(ctx, configMap)).To(Succeed())
 
 					By("creating the ConfigMap that stores the destination server token")
-					tokenPath := common.FormatFileSafeServerURL(t.serverTokenKey) + "-token"
+					tokenPath := common2.FormatFileSafeServerURL(t.serverTokenKey) + "-token"
 
 					configMap = &corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      common.ClusterTokensConfigMapName,
+							Name:      common2.ClusterTokensConfigMapName,
 							Namespace: typeNamespacedName.Namespace,
 						},
 						Data: map[string]string{

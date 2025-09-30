@@ -38,6 +38,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	"github.com/dana-team/application-rbac-validator/internal/controller"
 	webhookargoprojv1alpha1 "github.com/dana-team/application-rbac-validator/internal/webhook/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
@@ -208,6 +209,15 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Application")
 			os.Exit(1)
 		}
+	}
+	nsPrefix := os.Getenv("NAMESPACE_PREFIX")
+	if err = (&controller.ApplicationReconciler{
+		Client:          mgr.GetClient(),
+		Scheme:          mgr.GetScheme(),
+		NamespacePrefix: nsPrefix,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Application")
+		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
 

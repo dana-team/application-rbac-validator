@@ -12,6 +12,12 @@ const (
 	DefaultServerUrlPort             = "6443"
 )
 
+const (
+	NamespaceKey        = "namespaces"
+	ClusterResourcesKey = "clusterResources"
+	FinalizerName       = "argocd.dana.io/optimize-secret"
+)
+
 var (
 	InClusterValues               = []string{"in-cluster", "kubernetes.svc.cluster.local"}
 	InstanceUsersAccessLevelVerbs = []string{"get", "list", "watch", "create", "update", "patch", "delete"}
