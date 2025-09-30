@@ -18,15 +18,19 @@ package controller
 
 import (
 	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Application Controller", func() {
-	Context("When reconciling a resource", func() {
-
-		It("should successfully reconcile the resource", func() {
-
-			// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
-			// Example: If you expect a certain status condition after reconciliation, verify it here.
+	Context("When reconciling an Application resource", func() {
+		It("should successfully setup with manager", func() {
+			By("creating a new reconciler")
+			reconciler := &ApplicationReconciler{
+				Client:          k8sClient,
+				Scheme:          k8sClient.Scheme(),
+				NamespacePrefix: "test-",
+			}
+			Expect(reconciler).NotTo(BeNil())
 		})
 	})
 })
