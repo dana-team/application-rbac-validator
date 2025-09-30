@@ -16,6 +16,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+const (
+	testAppName              = "test-app"
+	testAppName1             = "test-app1"
+	testAppName2             = "test-app2"
+	testNamespace            = "test-ns"
+	testCluster              = "test-cluster"
+	testServerUrlDomain      = "example.com"
+	testSecretNameSuffix     = "-cluster-tokentoken"
+	testExistingNamespace    = "existing-ns"
+	testNewNamespace         = "new-ns"
+	testDestinationNamespace = "test-dest-ns"
+	testOtherNamespace       = "other-ns"
+	testNamespaceSeparator   = ","
+)
+
 func setupTest(t *testing.T) (client.Client, *runtime.Scheme) {
 	s := runtime.NewScheme()
 	_ = scheme.AddToScheme(s)
@@ -33,13 +48,13 @@ func TestHandleCreateOrUpdate_InCluster(t *testing.T) {
 
 	app := &argoprojv1alpha1.Application{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-app",
-			Namespace: "test-ns",
+			Name:      testAppName,
+			Namespace: testNamespace,
 		},
 		Spec: argoprojv1alpha1.ApplicationSpec{
 			Destination: argoprojv1alpha1.ApplicationDestination{
-				Server:    "in-cluster",
-				Namespace: "test-dest-ns",
+				Server:    common.InClusterValues[0],
+				Namespace: testDestinationNamespace,
 			},
 		},
 	}
@@ -59,15 +74,15 @@ func TestHandleCreateOrUpdate_ClusterwideAccess(t *testing.T) {
 	cl, _ := setupTest(t)
 	ctx := context.Background()
 	log := logr.Discard()
-	common.ServerUrlDomain = "example.com"
+	common.ServerUrlDomain = testServerUrlDomain
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-cluster.example.com-cluster-tokentoken",
-			Namespace: "test-ns",
+			Name:      testCluster + "." + testServerUrlDomain + testSecretNameSuffix,
+			Namespace: testNamespace,
 		},
 		Data: map[string][]byte{
-			common.NamespaceKey:        []byte("existing-ns"),
+			common.NamespaceKey:        []byte(testExistingNamespace),
 			common.ClusterResourcesKey: []byte("true"),
 		},
 	}
@@ -77,13 +92,13 @@ func TestHandleCreateOrUpdate_ClusterwideAccess(t *testing.T) {
 
 	app := &argoprojv1alpha1.Application{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-app",
-			Namespace: "test-ns",
+			Name:      testAppName,
+			Namespace: testNamespace,
 		},
 		Spec: argoprojv1alpha1.ApplicationSpec{
 			Destination: argoprojv1alpha1.ApplicationDestination{
-				Server:    "test-cluster",
-				Namespace: "test-dest-ns",
+				Server:    testCluster,
+				Namespace: testDestinationNamespace,
 			},
 		},
 	}
@@ -100,7 +115,7 @@ func TestHandleCreateOrUpdate_ClusterwideAccess(t *testing.T) {
 		t.Fatalf("Failed to get secret: %v", err)
 	}
 
-	if string(updatedSecret.Data[common.NamespaceKey]) != "existing-ns" {
+	if string(updatedSecret.Data[common.NamespaceKey]) != testExistingNamespace {
 		t.Errorf("Expected secret to not be modified, got %s", string(updatedSecret.Data[common.NamespaceKey]))
 	}
 }
@@ -109,15 +124,15 @@ func TestHandleCreateOrUpdate_AddNamespaceToSecret(t *testing.T) {
 	cl, _ := setupTest(t)
 	ctx := context.Background()
 	log := logr.Discard()
-	common.ServerUrlDomain = "example.com"
+	common.ServerUrlDomain = testServerUrlDomain
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-cluster.example.com-cluster-tokentoken",
-			Namespace: "test-ns",
+			Name:      testCluster + "." + testServerUrlDomain + testSecretNameSuffix,
+			Namespace: testNamespace,
 		},
 		Data: map[string][]byte{
-			common.NamespaceKey: []byte("existing-ns"),
+			common.NamespaceKey: []byte(testExistingNamespace),
 		},
 	}
 	if err := cl.Create(ctx, secret); err != nil {
@@ -126,13 +141,13 @@ func TestHandleCreateOrUpdate_AddNamespaceToSecret(t *testing.T) {
 
 	app := &argoprojv1alpha1.Application{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-app",
-			Namespace: "test-ns",
+			Name:      testAppName,
+			Namespace: testNamespace,
 		},
 		Spec: argoprojv1alpha1.ApplicationSpec{
 			Destination: argoprojv1alpha1.ApplicationDestination{
-				Server:    "test-cluster",
-				Namespace: "new-ns",
+				Server:    testCluster,
+				Namespace: testNewNamespace,
 			},
 		},
 	}
@@ -153,8 +168,9 @@ func TestHandleCreateOrUpdate_AddNamespaceToSecret(t *testing.T) {
 	}
 
 	namespaces := string(updatedSecret.Data[common.NamespaceKey])
-	if namespaces != "existing-ns,new-ns" {
-		t.Errorf("Expected namespaces to be 'existing-ns,new-ns', got %s", namespaces)
+	expectedNamespaces := testExistingNamespace + testNamespaceSeparator + testNewNamespace
+	if namespaces != expectedNamespaces {
+		t.Errorf("Expected namespaces to be '%s', got %s", expectedNamespaces, namespaces)
 	}
 
 	// Verify finalizer was added
@@ -172,15 +188,15 @@ func TestHandleCreateOrUpdate_NamespaceAlreadyExists(t *testing.T) {
 	cl, _ := setupTest(t)
 	ctx := context.Background()
 	log := logr.Discard()
-	common.ServerUrlDomain = "example.com"
+	common.ServerUrlDomain = testServerUrlDomain
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-cluster.example.com-cluster-tokentoken",
-			Namespace: "test-ns",
+			Name:      testCluster + "." + testServerUrlDomain + testSecretNameSuffix,
+			Namespace: testNamespace,
 		},
 		Data: map[string][]byte{
-			common.NamespaceKey: []byte("existing-ns,new-ns"),
+			common.NamespaceKey: []byte(testExistingNamespace + testNamespaceSeparator + testNewNamespace),
 		},
 	}
 	if err := cl.Create(ctx, secret); err != nil {
@@ -189,13 +205,13 @@ func TestHandleCreateOrUpdate_NamespaceAlreadyExists(t *testing.T) {
 
 	app := &argoprojv1alpha1.Application{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-app",
-			Namespace: "test-ns",
+			Name:      testAppName,
+			Namespace: testNamespace,
 		},
 		Spec: argoprojv1alpha1.ApplicationSpec{
 			Destination: argoprojv1alpha1.ApplicationDestination{
-				Server:    "test-cluster",
-				Namespace: "new-ns",
+				Server:    testCluster,
+				Namespace: testNewNamespace,
 			},
 		},
 	}
@@ -216,8 +232,9 @@ func TestHandleCreateOrUpdate_NamespaceAlreadyExists(t *testing.T) {
 	}
 
 	namespaces := string(updatedSecret.Data[common.NamespaceKey])
-	if namespaces != "existing-ns,new-ns" {
-		t.Errorf("Expected namespaces to remain 'existing-ns,new-ns', got %s", namespaces)
+	expectedNamespaces := testExistingNamespace + testNamespaceSeparator + testNewNamespace
+	if namespaces != expectedNamespaces {
+		t.Errorf("Expected namespaces to remain '%s', got %s", expectedNamespaces, namespaces)
 	}
 }
 
@@ -225,15 +242,15 @@ func TestHandleDelete_RemoveNamespace(t *testing.T) {
 	cl, _ := setupTest(t)
 	ctx := context.Background()
 	log := logr.Discard()
-	common.ServerUrlDomain = "example.com"
+	common.ServerUrlDomain = testServerUrlDomain
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-cluster.example.com-cluster-tokentoken",
-			Namespace: "test-ns",
+			Name:      testCluster + "." + testServerUrlDomain + testSecretNameSuffix,
+			Namespace: testNamespace,
 		},
 		Data: map[string][]byte{
-			common.NamespaceKey: []byte("other-ns,test-dest-ns"),
+			common.NamespaceKey: []byte(testOtherNamespace + testNamespaceSeparator + testDestinationNamespace),
 		},
 	}
 	if err := cl.Create(ctx, secret); err != nil {
@@ -242,14 +259,14 @@ func TestHandleDelete_RemoveNamespace(t *testing.T) {
 
 	app := &argoprojv1alpha1.Application{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:       "test-app",
-			Namespace:  "test-ns",
+			Name:       testAppName,
+			Namespace:  testNamespace,
 			Finalizers: []string{common.FinalizerName},
 		},
 		Spec: argoprojv1alpha1.ApplicationSpec{
 			Destination: argoprojv1alpha1.ApplicationDestination{
-				Server:    "test-cluster",
-				Namespace: "test-dest-ns",
+				Server:    testCluster,
+				Namespace: testDestinationNamespace,
 			},
 		},
 	}
@@ -270,8 +287,8 @@ func TestHandleDelete_RemoveNamespace(t *testing.T) {
 	}
 
 	namespaces := string(updatedSecret.Data[common.NamespaceKey])
-	if namespaces != "other-ns" {
-		t.Errorf("Expected namespaces to be 'other-ns', got %s", namespaces)
+	if namespaces != testOtherNamespace {
+		t.Errorf("Expected namespaces to be '%s', got %s", testOtherNamespace, namespaces)
 	}
 
 	// Verify finalizer was removed
@@ -284,15 +301,15 @@ func TestHandleDelete_KeepNamespaceWhenOtherAppsUseIt(t *testing.T) {
 	cl, _ := setupTest(t)
 	ctx := context.Background()
 	log := logr.Discard()
-	common.ServerUrlDomain = "example.com"
+	common.ServerUrlDomain = testServerUrlDomain
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-cluster.example.com-cluster-tokentoken",
-			Namespace: "test-ns",
+			Name:      testCluster + "." + testServerUrlDomain + testSecretNameSuffix,
+			Namespace: testNamespace,
 		},
 		Data: map[string][]byte{
-			common.NamespaceKey: []byte("test-dest-ns"),
+			common.NamespaceKey: []byte(testDestinationNamespace),
 		},
 	}
 	if err := cl.Create(ctx, secret); err != nil {
@@ -301,14 +318,14 @@ func TestHandleDelete_KeepNamespaceWhenOtherAppsUseIt(t *testing.T) {
 
 	app1 := &argoprojv1alpha1.Application{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:       "test-app1",
-			Namespace:  "test-ns",
+			Name:       testAppName1,
+			Namespace:  testNamespace,
 			Finalizers: []string{common.FinalizerName},
 		},
 		Spec: argoprojv1alpha1.ApplicationSpec{
 			Destination: argoprojv1alpha1.ApplicationDestination{
-				Server:    "test-cluster",
-				Namespace: "test-dest-ns",
+				Server:    testCluster,
+				Namespace: testDestinationNamespace,
 			},
 		},
 	}
@@ -318,13 +335,13 @@ func TestHandleDelete_KeepNamespaceWhenOtherAppsUseIt(t *testing.T) {
 
 	app2 := &argoprojv1alpha1.Application{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-app2",
-			Namespace: "test-ns",
+			Name:      testAppName2,
+			Namespace: testNamespace,
 		},
 		Spec: argoprojv1alpha1.ApplicationSpec{
 			Destination: argoprojv1alpha1.ApplicationDestination{
-				Server:    "test-cluster",
-				Namespace: "test-dest-ns",
+				Server:    testCluster,
+				Namespace: testDestinationNamespace,
 			},
 		},
 	}
@@ -345,8 +362,8 @@ func TestHandleDelete_KeepNamespaceWhenOtherAppsUseIt(t *testing.T) {
 	}
 
 	namespaces := string(updatedSecret.Data[common.NamespaceKey])
-	if namespaces != "test-dest-ns" {
-		t.Errorf("Expected namespaces to remain 'test-dest-ns', got %s", namespaces)
+	if namespaces != testDestinationNamespace {
+		t.Errorf("Expected namespaces to remain '%s', got %s", testDestinationNamespace, namespaces)
 	}
 
 	// Verify finalizer was still removed
@@ -362,14 +379,14 @@ func TestHandleDelete_NoFinalizerNoOp(t *testing.T) {
 
 	app := &argoprojv1alpha1.Application{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-app",
-			Namespace: "test-ns",
+			Name:      testAppName,
+			Namespace: testNamespace,
 			// No finalizers
 		},
 		Spec: argoprojv1alpha1.ApplicationSpec{
 			Destination: argoprojv1alpha1.ApplicationDestination{
-				Server:    "test-cluster",
-				Namespace: "test-dest-ns",
+				Server:    testCluster,
+				Namespace: testDestinationNamespace,
 			},
 		},
 	}

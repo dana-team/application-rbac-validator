@@ -30,6 +30,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+const (
+	testNamespacePrefix = "argocd-"
+	testAppNameFormat   = "test-app-%d"
+	testNsFormat        = "test-ns-%d"
+	otherNsFormat       = "other-test-%d"
+)
+
 var _ = Describe("Application Controller", func() {
 	const (
 		timeout  = time.Second * 10
@@ -40,17 +47,15 @@ var _ = Describe("Application Controller", func() {
 		testNamespace        string
 		testAppName          string
 		reconciler           *ApplicationReconciler
-		testNamespacePrefix  string
 		prefixedNamespace    string
 		nonPrefixedNamespace string
 	)
 
 	BeforeEach(func() {
-		testNamespace = fmt.Sprintf("test-ns-%d", time.Now().UnixNano())
-		testAppName = fmt.Sprintf("test-app-%d", time.Now().UnixNano())
-		testNamespacePrefix = "argocd-"
-		prefixedNamespace = fmt.Sprintf("%stest-%d", testNamespacePrefix, time.Now().UnixNano())
-		nonPrefixedNamespace = fmt.Sprintf("other-test-%d", time.Now().UnixNano())
+		testNamespace = fmt.Sprintf(testNsFormat, time.Now().UnixNano())
+		testAppName = fmt.Sprintf(testAppNameFormat, time.Now().UnixNano())
+		prefixedNamespace = fmt.Sprintf("%s"+testNsFormat, testNamespacePrefix, time.Now().UnixNano())
+		nonPrefixedNamespace = fmt.Sprintf(otherNsFormat, time.Now().UnixNano())
 
 		reconciler = &ApplicationReconciler{
 			Client:          k8sClient,

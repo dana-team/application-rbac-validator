@@ -18,10 +18,34 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// IsNotSpecUpdate checks if the only difference between the old and new Application objects is in their Status subresource.
-// It returns true if only the status has changed, false otherwise.
+// IsNotSpecUpdate checks if the only differences between the old and new Application objects are in their Status subresource or Finalizers.
+// It returns true if only the status or finalizers have changed, false otherwise.
+// This allows the webhook to automatically approve updates from controllers that only manage finalizers.
 func IsNotSpecUpdate(oldApp, newApp *argoprojv1alpha1.Application) bool {
-	return reflect.DeepEqual(oldApp.Spec, newApp.Spec)
+	// If specs are different, this is a spec update
+	if !reflect.DeepEqual(oldApp.Spec, newApp.Spec) {
+		return false
+	}
+
+	// If specs are the same, check if only metadata changed (excluding finalizers)
+	// Create copies to avoid modifying the originals
+	oldMeta := oldApp.ObjectMeta.DeepCopy()
+	newMeta := newApp.ObjectMeta.DeepCopy()
+
+	// Clear finalizers before comparing metadata
+	oldMeta.Finalizers = nil
+	newMeta.Finalizers = nil
+
+	// Clear status-related metadata fields that controllers update
+	oldMeta.Generation = 0
+	newMeta.Generation = 0
+	oldMeta.ResourceVersion = ""
+	newMeta.ResourceVersion = ""
+	oldMeta.ManagedFields = nil
+	newMeta.ManagedFields = nil
+
+	// If metadata (excluding finalizers and status fields) is different, this is a meaningful update
+	return reflect.DeepEqual(oldMeta, newMeta)
 }
 
 // ValidateServerUrlFormat checks whether the given destServer is a full, valid server URL according to this format:
