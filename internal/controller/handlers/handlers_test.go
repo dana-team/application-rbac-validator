@@ -202,21 +202,21 @@ func TestHandleCreateOrUpdate(t *testing.T) {
 
 			if tc.expectUpdate && tc.expectedNsList != nil {
 				actualNsList := common.GetNamespacesList(updatedSecret)
-				
+
 				expectedNsSet := make(map[string]bool)
 				for _, ns := range tc.expectedNsList {
 					if ns != "" {
 						expectedNsSet[ns] = true
 					}
 				}
-				
+
 				actualNsSet := make(map[string]bool)
 				for _, ns := range actualNsList {
 					if ns != "" {
 						actualNsSet[ns] = true
 					}
 				}
-				
+
 				if len(expectedNsSet) != len(actualNsSet) {
 					t.Errorf("expected namespace set %v but got %v", expectedNsSet, actualNsSet)
 				} else {

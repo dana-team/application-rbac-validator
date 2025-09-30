@@ -184,11 +184,11 @@ func TestBuildServerUrl(t *testing.T) {
 
 func TestGetCurrentNamespace(t *testing.T) {
 	testCases := []struct {
-		name         string
-		fileContent  string
-		createFile   bool
-		expectError  bool
-		expectedNs   string
+		name        string
+		fileContent string
+		createFile  bool
+		expectError bool
+		expectedNs  string
 	}{
 		{
 			name:        "should read namespace from file",
@@ -218,7 +218,7 @@ func TestGetCurrentNamespace(t *testing.T) {
 			WebhookNamespacePath = tmpFile
 			defer func() {
 				WebhookNamespacePath = originalPath
-				os.Remove(tmpFile)
+				_ = os.Remove(tmpFile)
 			}()
 
 			if tc.createFile {
@@ -243,10 +243,10 @@ func TestGetCurrentNamespace(t *testing.T) {
 
 func TestIsManagementApplication(t *testing.T) {
 	testCases := []struct {
-		name               string
-		argoInstanceName   string
-		applicationName    string
-		expected           bool
+		name             string
+		argoInstanceName string
+		applicationName  string
+		expected         bool
 	}{
 		{
 			name:             "should return true for management application",

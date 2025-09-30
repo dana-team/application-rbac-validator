@@ -1,9 +1,12 @@
 module github.com/dana-team/application-rbac-validator
 
-go 1.25.1
+go 1.24.6
+
+toolchain go1.24.7
 
 require (
 	github.com/argoproj/argo-cd/v3 v3.1.5
+	github.com/go-logr/logr v1.4.3
 	github.com/onsi/ginkgo/v2 v2.25.2
 	github.com/onsi/gomega v1.38.2
 	k8s.io/api v0.33.1
@@ -57,7 +60,6 @@ require (
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.6.2 // indirect
 	github.com/go-git/go-git/v5 v5.14.0 // indirect
-	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-logr/zapr v1.3.0 // indirect
 	github.com/go-openapi/jsonpointer v0.21.1 // indirect
