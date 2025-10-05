@@ -1,4 +1,4 @@
-package common
+package utils
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	argoprojv1alpha1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
+	"github.com/dana-team/application-rbac-validator/internal/common"
 	authv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -60,12 +61,12 @@ func ExtractClusterName(destServer string) string {
 // BuildServerUrl constructs a full server URL from a partial cluster name according to this format:
 // https://api.my-cluster.domain.example.com:port.
 func BuildServerUrl(clusterName string) string {
-	return fmt.Sprintf("https://api.%s.%s:%s", clusterName, ServerUrlDomain, DefaultServerUrlPort)
+	return fmt.Sprintf("https://api.%s.%s:%s", clusterName, common.ServerUrlDomain, common.DefaultServerUrlPort)
 }
 
 // GetCurrentNamespace returns the current pod's namespace by reading the in-cluster service account namespace file.
 func GetCurrentNamespace() (string, error) {
-	data, err := os.ReadFile(WebhookNamespacePath)
+	data, err := os.ReadFile(common.WebhookNamespacePath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read webhook's current namespace: %w", err)
 	}
@@ -92,15 +93,14 @@ func BypassLabelExists(ctx context.Context,
 	if err != nil {
 		return false, fmt.Errorf("client failed to get Namespace %s: %w", namespace, err)
 	}
-
 	return isBypassLabelValid(ns.Labels, clusterName), nil
 }
 
 // isBypassLabelValid checks if the given labels contain a valid AdminBypassLabel for the specified clusterName.
 func isBypassLabelValid(labels map[string]string, clusterName string) bool {
 	for key, value := range labels {
-		if strings.HasPrefix(key, AdminBypassLabel) && value == "true" {
-			suffix := strings.TrimPrefix(key, AdminBypassLabel)
+		if strings.HasPrefix(key, common.AdminBypassLabel) && value == "true" {
+			suffix := strings.TrimPrefix(key, common.AdminBypassLabel)
 
 			switch suffix {
 			case "":
@@ -109,8 +109,8 @@ func isBypassLabelValid(labels map[string]string, clusterName string) bool {
 			case "-" + clusterName:
 				return true
 
-			case "-" + InClusterValues[0]:
-				for _, InClusterValue := range InClusterValues {
+			case "-" + common.InClusterValues[0]:
+				for _, InClusterValue := range common.InClusterValues {
 					if clusterName == InClusterValue {
 						return true
 					}
@@ -124,7 +124,7 @@ func isBypassLabelValid(labels map[string]string, clusterName string) bool {
 
 // IsInCluster checks if the given serverUrl equals any known in-cluster values (e.g., "in-cluster", "kubernetes.svc.cluster.local").
 func IsInCluster(serverUrl string) bool {
-	for _, val := range InClusterValues {
+	for _, val := range common.InClusterValues {
 		if serverUrl == val {
 			return true
 		}
@@ -159,7 +159,7 @@ func fetchConfigMapValue(
 
 // FetchArgoInstanceName extracts the Application's argocd instance name from the argo-config ConfigMap inside the Application namespace.
 func FetchArgoInstanceName(ctx context.Context, k8sClient client.Client, appNamespace string) (string, error) {
-	value, err := fetchConfigMapValue(ctx, k8sClient, appNamespace, ArgoInstanceConfigMapName, ArgoInstanceNameConfigMapKey)
+	value, err := fetchConfigMapValue(ctx, k8sClient, appNamespace, common.ArgoInstanceConfigMapName, common.ArgoInstanceNameConfigMapKey)
 	if err != nil {
 		return "", err
 	}
@@ -169,7 +169,7 @@ func FetchArgoInstanceName(ctx context.Context, k8sClient client.Client, appName
 
 // FetchArgoInstanceUsers extracts the Application's admins from the argo-config ConfigMap inside the Application namespace.
 func FetchArgoInstanceUsers(ctx context.Context, k8sClient client.Client, appNamespace string) ([]string, error) {
-	value, err := fetchConfigMapValue(ctx, k8sClient, appNamespace, ArgoInstanceConfigMapName, ArgoInstanceUsersConfigMapKey)
+	value, err := fetchConfigMapValue(ctx, k8sClient, appNamespace, common.ArgoInstanceConfigMapName, common.ArgoInstanceUsersConfigMapKey)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +182,7 @@ func FetchClusterToken(ctx context.Context, k8sClient client.Client, appNamespac
 	string, error) {
 	configMapKey := FormatFileSafeServerURL(serverURL) + "-token"
 
-	value, err := fetchConfigMapValue(ctx, k8sClient, appNamespace, ClusterTokensConfigMapName, configMapKey)
+	value, err := fetchConfigMapValue(ctx, k8sClient, appNamespace, common.ClusterTokensConfigMapName, configMapKey)
 	if err != nil {
 		return "", err
 	}
@@ -228,7 +228,7 @@ func BuildClusterClient(serverURL, token string) (kubernetes.Interface, error) {
 
 // isNamespaceAdmin checks if the user has admin access to a namespace.
 func isNamespaceAdmin(ctx context.Context, client kubernetes.Interface, user, namespace string) (bool, error) {
-	for _, verb := range InstanceUsersAccessLevelVerbs {
+	for _, verb := range common.InstanceUsersAccessLevelVerbs {
 		res, err := client.AuthorizationV1().SubjectAccessReviews().Create(
 			ctx,
 			buildSubjectAccessReview(user, namespace, verb),
@@ -255,7 +255,7 @@ func buildSubjectAccessReview(user, namespace, verb string) *authv1.SubjectAcces
 			ResourceAttributes: &authv1.ResourceAttributes{
 				Namespace: namespace,
 				Verb:      verb,
-				Resource:  InstanceUsersAccessLevelResource,
+				Resource:  common.InstanceUsersAccessLevelResource,
 			},
 		},
 	}
@@ -279,4 +279,37 @@ func EnsureAnyAdminHasNamespaceAccess(
 		}
 	}
 	return fmt.Errorf("no users have admin access to namespace %s in cluster %s", namespace, cluster)
+}
+
+// FetchDestinationClusterSecret retrieves the secret associated with the destination cluster of the given Application.
+func FetchDestinationClusterSecret(ctx context.Context, k8sClient client.Client, app *argoprojv1alpha1.Application) (*corev1.Secret, error) {
+	destinationURl, err := url.Parse(app.Spec.Destination.Server)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse destination server URL %s: %w", app.Spec.Destination.Server,
+			err)
+	}
+	destination := strings.TrimPrefix(destinationURl.Hostname(), "api.")
+	secretName := fmt.Sprintf("%s-%s", destination, common.SecretNameSuffix)
+	secret := &corev1.Secret{}
+	err = k8sClient.Get(ctx, types.NamespacedName{Name: secretName, Namespace: app.Namespace}, secret)
+	return secret, err
+}
+
+// ExtractNamespacesFromSecret extracts the list of namespaces from the cluster secret's data.
+func ExtractNamespacesFromSecret(secret *corev1.Secret) []string {
+	namespacesRaw, ok := secret.Data[common.NamespaceKey]
+	if !ok || len(namespacesRaw) == 0 {
+		return []string{}
+	}
+	return strings.Split(string(namespacesRaw), ",")
+
+}
+
+// FetchClusterDomain retrieves the cluster domain from the environment variable.
+func FetchClusterDomain() {
+	domain, found := os.LookupEnv(common.ClusterDomainEnvVar)
+	if found {
+		common.ServerUrlDomain = domain
+		common.DomainEnvVarFound = true
+	}
 }

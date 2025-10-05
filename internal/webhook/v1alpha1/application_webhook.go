@@ -21,13 +21,13 @@ import (
 	"fmt"
 
 	argoprojv1alpha1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
-	"github.com/dana-team/application-rbac-validator/internal/webhook/common"
+	"github.com/dana-team/application-rbac-validator/internal/common"
+	"github.com/dana-team/application-rbac-validator/internal/utils"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -46,11 +46,11 @@ type ApplicationCustomValidator struct {
 	destinationClusterClient kubernetes.Interface
 }
 
-var _ webhook.CustomValidator = &ApplicationCustomValidator{}
+var ClusterDomain string
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type Application.
 func (v *ApplicationCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	logger := logf.FromContext(ctx)
+	logger := zap.New().WithName("webhook")
 	application, ok := obj.(*argoprojv1alpha1.Application)
 	if !ok {
 		return nil, fmt.Errorf("expected a Application object but got %T", obj)
@@ -62,7 +62,7 @@ func (v *ApplicationCustomValidator) ValidateCreate(ctx context.Context, obj run
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type Application.
 func (v *ApplicationCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	logger := logf.FromContext(ctx)
+	logger := zap.New().WithName("webhook")
 	newApplication, ok := newObj.(*argoprojv1alpha1.Application)
 	if !ok {
 		return nil, fmt.Errorf("expected a Application object for the newObj but got %T", newObj)
@@ -74,7 +74,7 @@ func (v *ApplicationCustomValidator) ValidateUpdate(ctx context.Context, oldObj,
 
 	logger.Info("Validation for Application upon update", "name", newApplication.GetName())
 
-	if common.IsNotSpecUpdate(oldApplication, newApplication) {
+	if utils.IsNotSpecUpdate(oldApplication, newApplication) {
 		logger.V(1).Info("Only a status update, approving automatically.")
 		return nil, nil
 	}
@@ -90,7 +90,7 @@ func (v *ApplicationCustomValidator) ValidateDelete(ctx context.Context, obj run
 // validateApplication prevents unauthorized application deployments across clusters or namespaces.
 func validateApplication(ctx context.Context, k8sClient client.Client, destinationClusterClient kubernetes.Interface,
 	application *argoprojv1alpha1.Application) error {
-	logger := logf.FromContext(ctx)
+	logger := zap.New().WithName("webhook")
 	destServer := application.Spec.Destination.Server
 	destNamespace := application.Spec.Destination.Namespace
 	appNamespace := application.GetNamespace()
@@ -103,13 +103,13 @@ func validateApplication(ctx context.Context, k8sClient client.Client, destinati
 		return fmt.Errorf("destination namespace and server must be specified")
 	}
 
-	if common.ServerUrlDomain == "" {
-		return fmt.Errorf("SERVER_DOMAIN env variable must be specified in the Application's container")
+	utils.FetchClusterDomain()
+	if !common.DomainEnvVarFound {
+		logger.Info(fmt.Sprintf("Failed to fetch env var %s, validation might fail if server is not a URL", common.ClusterDomainEnvVar))
 	}
 
 	logger.Info("Checking if bypass label exists on the Application's namespace")
-
-	isBypassLabelExists, err := common.BypassLabelExists(ctx, k8sClient, appNamespace, common.ExtractClusterName(destServer))
+	isBypassLabelExists, err := utils.BypassLabelExists(ctx, k8sClient, appNamespace, utils.ExtractClusterName(destServer))
 	if err != nil {
 		return fmt.Errorf("failed to check bypass label on the Application's namespace: %w", err)
 	}
@@ -120,12 +120,12 @@ func validateApplication(ctx context.Context, k8sClient client.Client, destinati
 
 	logger.Info("Checking if its a management Application")
 
-	argoInstanceName, err := common.FetchArgoInstanceName(ctx, k8sClient, appNamespace)
+	argoInstanceName, err := utils.FetchArgoInstanceName(ctx, k8sClient, appNamespace)
 	if err != nil {
 		return fmt.Errorf("failed to fetch Application's argo instance name: %w", err)
 	}
 
-	isManagementApplication := common.IsManagementApplication(argoInstanceName, application.Name)
+	isManagementApplication := utils.IsManagementApplication(argoInstanceName, application.Name)
 
 	if isManagementApplication {
 		logger.Info("Application approved")
@@ -134,26 +134,26 @@ func validateApplication(ctx context.Context, k8sClient client.Client, destinati
 
 	logger.Info("Ensuring the Application's server and the destination server are not the same")
 
-	if common.IsInCluster(destServer) {
+	if utils.IsInCluster(destServer) {
 		return fmt.Errorf("destination server must not be the same as the Application's current cluster")
 	}
 
 	logger.Info("Fetching the webhook's current namespace name")
 
-	currentNamespace, err := common.GetCurrentNamespace()
+	currentNamespace, err := utils.GetCurrentNamespace()
 	if err != nil {
 		return fmt.Errorf("failed to fetch the webhook's current namespace name: %w", err)
 	}
 
 	logger.Info("Building destination Server url")
 
-	if !common.ValidateServerUrlFormat(destServer) {
-		destServer = common.BuildServerUrl(destServer)
+	if !utils.ValidateServerUrlFormat(destServer) {
+		destServer = utils.BuildServerUrl(destServer)
 	}
 
 	logger.Info("Fetching destination cluster token")
 
-	token, err := common.FetchClusterToken(ctx, k8sClient, currentNamespace, destServer)
+	token, err := utils.FetchClusterToken(ctx, k8sClient, currentNamespace, destServer)
 	if err != nil {
 		return fmt.Errorf("failed to fetch cluster token: %w", err)
 	}
@@ -161,7 +161,7 @@ func validateApplication(ctx context.Context, k8sClient client.Client, destinati
 	logger.Info("Accessing destination cluster")
 
 	if destinationClusterClient == nil {
-		destinationClusterClient, err = common.BuildClusterClient(destServer, token)
+		destinationClusterClient, err = utils.BuildClusterClient(destServer, token)
 		if err != nil {
 			return fmt.Errorf("failed to build destination's cluster client: %w", err)
 		}
@@ -169,14 +169,14 @@ func validateApplication(ctx context.Context, k8sClient client.Client, destinati
 
 	logger.Info("Fetching authorized administrators for the Application's target environment.")
 
-	admins, err := common.FetchArgoInstanceUsers(ctx, k8sClient, appNamespace)
+	admins, err := utils.FetchArgoInstanceUsers(ctx, k8sClient, appNamespace)
 	if err != nil {
 		return fmt.Errorf("failed to fetch Application's admins: %w", err)
 	}
 
 	logger.Info("Validating namespace access for account", "account", admins, "namespace", destNamespace, "cluster", destServer)
 
-	if err := common.EnsureAnyAdminHasNamespaceAccess(ctx, destinationClusterClient, admins, destNamespace, destServer); err != nil {
+	if err := utils.EnsureAnyAdminHasNamespaceAccess(ctx, destinationClusterClient, admins, destNamespace, destServer); err != nil {
 		return err
 	}
 

@@ -1,7 +1,5 @@
 package common
 
-import "os"
-
 const (
 	ClusterTokensConfigMapName       = "application-rbac-validator-cluster-tokens"
 	ArgoInstanceConfigMapName        = "argo-config"
@@ -10,12 +8,17 @@ const (
 	InstanceUsersAccessLevelResource = "pods"
 	AdminBypassLabel                 = "argocd.dana.io/bypass-rbac-validation"
 	DefaultServerUrlPort             = "6443"
+	NamespaceKey                     = "namespaces"
+	ClusterResourcesKey              = "clusterResources"
+	FinalizerName                    = "argocd.dana.io/optimize-secret"
 )
 
 var (
 	InClusterValues               = []string{"in-cluster", "kubernetes.svc.cluster.local"}
 	InstanceUsersAccessLevelVerbs = []string{"get", "list", "watch", "create", "update", "patch", "delete"}
 	WebhookNamespacePath          = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+	ClusterDomainEnvVar           = "KUBERNETES_CLUSTER_DOMAIN"
+	ServerUrlDomain               = ""
+	SecretNameSuffix              = "cluster-secret"
+	DomainEnvVarFound             = false
 )
-
-var ServerUrlDomain = os.Getenv("KUBERNETES_CLUSTER_DOMAIN")
