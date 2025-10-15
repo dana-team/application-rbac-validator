@@ -49,8 +49,11 @@ controllerManager:
     # -- Annotations to add to the service account.
     annotations: {}
 
-# -- The Kubernetes cluster domain.
-kubernetesClusterDomain: ""
+config:
+  # -- The Kubernetes cluster domain.
+  kubernetesClusterDomain: ""
+    # -- The namespace prefix for applications managed by the controller.
+  namespacePrefix: ""
 
 # -- Configuration for the metrics service.
 metricsService:

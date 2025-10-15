@@ -27,7 +27,9 @@ spec:
         - /manager
         env:
         - name: KUBERNETES_CLUSTER_DOMAIN
-          value: {{ quote .Values.kubernetesClusterDomain }}
+          value: {{ quote .Values.config.kubernetesClusterDomain }}
+        - name: NAMESPACE_PREFIX
+          value: {{ quote .Values.config.namespacePrefix }}
         image: {{ .Values.controllerManager.manager.image.repository }}:{{ .Values.controllerManager.manager.image.tag
           | default .Chart.AppVersion }}
         livenessProbe:
