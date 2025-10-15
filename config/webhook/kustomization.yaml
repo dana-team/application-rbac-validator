@@ -8,7 +8,7 @@ generatorOptions:
 configMapGenerator:
   - name: cluster-tokens
     literals:
-      - <example-destination-server-name>-token=<example_token>
+      - example-server-token=example_token
 
 configurations:
 - kustomizeconfig.yaml

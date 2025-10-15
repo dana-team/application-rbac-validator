@@ -4,19 +4,144 @@ on:
   pull_request:
 
 jobs:
-  test:
-    name: Run on Ubuntu
+  e2e-test:
+    name: Run e2e tests
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_REGISTRY: kind-registry:5000
+      KIND_VERSION: v0.30.0
+      K8S_VERSION: v1.31.1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Start kind source cluster
+        uses: container-tools/kind-action@d69143e5f6afa8a8b34d8cdf37044b11d07b7728
+        id: start_kind_source
+        with:
+          cluster_name: kind-source-cluster
+          version: ${{env.KIND_VERSION}}
+          node_image: kindest/node:${{env.K8S_VERSION}}
+          kubectl_version: ${{env.K8S_VERSION}}
+          registry: true
+
+      - name: create destination cluster
+        uses: container-tools/kind-action@d69143e5f6afa8a8b34d8cdf37044b11d07b7728
+        with:
+          cluster_name: kind-destination-cluster
+          version: ${{env.KIND_VERSION}}
+          node_image: kindest/node:${{env.K8S_VERSION}}
+          kubectl_version: ${{env.K8S_VERSION}}
+          registry: false
+
+      - name: switch to source cluster context
+        run: kubectl config use-context kind-kind-source-cluster
+
+      - name: build and push images to kind registry
+        run: make docker-build docker-push IMG=${IMAGE_REGISTRY}/application-rbac-validator:test-${GITHUB_REF##*/}
+
+
+      - name: setup clusters for testing
+        run: make prereq quickstart
+
+      - name: Deploy application-rbac-validator to source cluster
+        run: make deploy IMG=${IMAGE_REGISTRY}/application-rbac-validator:test-${GITHUB_REF##*/}
+
+      - name: Await controller to be ready
+        uses: jupyterhub/action-k8s-await-workloads@v3
+        with:
+          workloads: ""
+          namespace: "application-rbac-validator-system"
+          max-restarts: 0
+          timeout: '60'
+      - name: Kubernetes namespace report
+        uses: jupyterhub/action-k8s-namespace-report@v1
+        with:
+          namespace: 'application-rbac-validator-system'
+        if: always()
+
+      - name: Run E2E tests
+        run: make test-e2e
+
+
+
+  unit-test:
+    name: Run unit tests
     runs-on: ubuntu-latest
     steps:
       - name: Clone the code
         uses: actions/checkout@v5
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
-      - name: Running Tests
+      - name: Running Unit Tests
         run: |
           go mod tidy
           make test
+
+  test-chart:
+    name: Run chart test
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_REGISTRY: kind-registry:5000
+      KIND_VERSION: v0.30.0
+      K8S_VERSION: v1.31.1
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Start kind source cluster
+        uses: container-tools/kind-action@d69143e5f6afa8a8b34d8cdf37044b11d07b7728
+        with:
+          registry: 'true'
+          version: ${{env.KIND_VERSION}}
+          node_image: kindest/node:${{env.K8S_VERSION}}
+          kubectl_version: ${{env.K8S_VERSION}}
+
+
+      - name: build and push images to kind registry
+        run: make docker-build docker-push IMG=${IMAGE_REGISTRY}/application-rbac-validator:test-${GITHUB_REF##*/}
+
+      - name: install prerequisites
+        run: make prereq
+
+      - name: Install Helm
+        run: |
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+      - name: Verify Helm installation
+        run: helm version
+
+      - name: Lint Helm Chart
+        run: |
+          helm lint ./charts/application-rbac-validator
+
+      - name: Install Helm chart for project
+        run: |
+          helm upgrade --install my-release charts/application-rbac-validator/ \
+          -n application-rbac-validator-system --create-namespace \
+          --set controllerManager.manager.image.repository=${IMAGE_REGISTRY}/application-rbac-validator \
+          --set controllerManager.manager.image.tag=test-${GITHUB_REF##*/}
+
+      - name: Check Helm release status
+        run: |
+          helm status my-release --namespace application-rbac-validator-system
+      - name: Await controller to be ready
+        uses: jupyterhub/action-k8s-await-workloads@v3
+        with:
+          workloads: ""
+          namespace: "application-rbac-validator-system"
+          max-restarts: 0
