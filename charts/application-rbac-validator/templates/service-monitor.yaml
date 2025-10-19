@@ -1,0 +1,13 @@
+{{- if .Values.metrics.enabled}}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "application-rbac-validator.fullname" . }}-servicemonitor
+  labels:
+  {{- include "application-rbac-validator.labels" . | nindent 4 }}
+spec:
+  matchLabels:
+    labels:
+      app.kubernetes.io/name: application-rbac-validator
+      control-plane: controller-manager
+{{- end}}

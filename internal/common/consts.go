@@ -10,11 +10,10 @@ const (
 	DefaultServerUrlPort             = "6443"
 	NamespaceKey                     = "namespaces"
 	ClusterResourcesKey              = "clusterResources"
-	FinalizerName                    = "argocd.dana.io/optimize-secret"
 )
 
 var (
-	InClusterValues               = []string{"in-cluster", "kubernetes.svc.cluster.local"}
+	InClusterValues               = []string{"in-cluster", "kubernetes.default.svc"}
 	InstanceUsersAccessLevelVerbs = []string{"get", "list", "watch", "create", "update", "patch", "delete"}
 	WebhookNamespacePath          = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 	ClusterDomainEnvVar           = "KUBERNETES_CLUSTER_DOMAIN"

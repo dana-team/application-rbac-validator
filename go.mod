@@ -7,6 +7,7 @@ require (
 	github.com/go-logr/logr v1.4.3
 	github.com/onsi/ginkgo/v2 v2.26.0
 	github.com/onsi/gomega v1.38.2
+	github.com/prometheus/client_golang v1.23.2
 	k8s.io/api v0.33.5
 	k8s.io/apimachinery v0.33.5
 	k8s.io/client-go v0.33.5
@@ -117,7 +118,6 @@ require (
 	github.com/pjbgf/sha1cd v0.3.2 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.67.1 // indirect
 	github.com/prometheus/procfs v0.17.0 // indirect
@@ -199,10 +199,7 @@ replace (
 	// Avoid CVE-2022-3064
 	gopkg.in/yaml.v2 => gopkg.in/yaml.v2 v2.4.0
 
-	// Avoid CVE-2022-28948
-
 	gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api => k8s.io/api v0.33.5
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.33.5
 	k8s.io/apimachinery => k8s.io/apimachinery v0.33.5
 	k8s.io/apiserver => k8s.io/apiserver v0.33.5
@@ -223,6 +220,8 @@ replace (
 	k8s.io/kms => k8s.io/kms v0.33.5
 	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.33.5
 	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.33.5
+
+	// Avoid CVE-2022-28948
 	k8s.io/kube-openapi v0.0.0-20250910181357-589584f1c912 => k8s.io/kube-openapi v0.0.0-20250628140032-d90c4fd18f59
 	k8s.io/kube-proxy => k8s.io/kube-proxy v0.33.5
 	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.33.5

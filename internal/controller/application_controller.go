@@ -21,7 +21,8 @@ import (
 	"strings"
 
 	argoprojv1alpha1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
-	"github.com/dana-team/application-rbac-validator/internal/controller/handlers"
+	"github.com/dana-team/application-rbac-validator/internal/handlers"
+	"github.com/dana-team/application-rbac-validator/internal/metrics"
 	"github.com/dana-team/application-rbac-validator/internal/utils"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -56,12 +57,17 @@ func (r *ApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	log := baseLogger.WithValues("app", app.Name, "destination", app.Spec.Destination.Server)
 	if utils.IsInCluster(app.Spec.Destination.Server) {
 		log.Info("application is targeting in-cluster, ignoring...", "app", app.Name)
+		metrics.ObserveApplicationOptimizationStatus(app.Name, app.Namespace, app.Spec.Destination.Server, "in-cluster", false)
 		return ctrl.Result{}, nil
 	}
 
-	if !app.ObjectMeta.DeletionTimestamp.IsZero() {
-		log.Info("application is being deleted, cleaning up...")
-		return ctrl.Result{}, handlers.HandleDelete(log, ctx, r.Client, app)
+	// Because ArgoCD applicationsets do not support adding manual finalizers to the generated applications,
+	// there is no way to ensure the cleanup of a namespace from the secret occurs when an application is deleted.
+	// Therefore, we skip processing applications that are being deleted.
+	if !app.DeletionTimestamp.IsZero() {
+		log.Info("application is being deleted, ignoring...", "app", app.Name)
+		metrics.DeleteApplicationOptimizationStatus(app.Name, app.Namespace, app.Spec.Destination.Server)
+		return ctrl.Result{}, nil
 	}
 	return ctrl.Result{}, handlers.HandleCreateOrUpdate(log, ctx, r.Client, app)
 }
@@ -74,7 +80,7 @@ func (r *ApplicationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(
 				func(ctx context.Context, o client.Object) []reconcile.Request {
 					namespace := o.GetNamespace()
-					if len(r.NamespacePrefix) > 0 && len(namespace) > len(r.NamespacePrefix) && strings.HasPrefix(namespace, r.NamespacePrefix) {
+					if len(r.NamespacePrefix) > 0 && strings.HasPrefix(namespace, r.NamespacePrefix) {
 						return []reconcile.Request{
 							{NamespacedName: client.ObjectKey{
 								Name:      o.GetName(),

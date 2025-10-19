@@ -10,6 +10,8 @@ A Helm chart for the application-rbac-validator webhook.
 |-----|------|---------|-------------|
 | clusterTokens | object | `{"example-destination-server-name-token":"<example_token>"}` | A mapping of destination server names to cluster access tokens used by the webhook. |
 | clusterTokens.example-destination-server-name-token | string | `"<example_token>"` | Example entry for a destination server token. |
+| config.kubernetesClusterDomain | string | `""` | The Kubernetes cluster domain. |
+| config.namespacePrefix | string | `""` | The namespace prefix for applications managed by the controller. |
 | controllerManager | object | `{"manager":{"args":["--metrics-bind-address=:8443","--leader-elect","--health-probe-bind-address=:8081","--metrics-cert-path=/tmp/k8s-metrics-server/metrics-certs","--webhook-cert-path=/tmp/k8s-webhook-server/serving-certs"],"containerSecurityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}},"image":{"repository":"controller","tag":""},"resources":{"limits":{"cpu":"500m","memory":"128Mi"},"requests":{"cpu":"10m","memory":"64Mi"}}},"replicas":1,"serviceAccount":{"annotations":{}}}` | Configuration for the controller manager. |
 | controllerManager.manager | object | `{"args":["--metrics-bind-address=:8443","--leader-elect","--health-probe-bind-address=:8081","--metrics-cert-path=/tmp/k8s-metrics-server/metrics-certs","--webhook-cert-path=/tmp/k8s-webhook-server/serving-certs"],"containerSecurityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}},"image":{"repository":"controller","tag":""},"resources":{"limits":{"cpu":"500m","memory":"128Mi"},"requests":{"cpu":"10m","memory":"64Mi"}}}` | Manager-specific settings within the controller. |
 | controllerManager.manager.args | list | `["--metrics-bind-address=:8443","--leader-elect","--health-probe-bind-address=:8081","--metrics-cert-path=/tmp/k8s-metrics-server/metrics-certs","--webhook-cert-path=/tmp/k8s-webhook-server/serving-certs"]` | Command-line arguments passed to the manager container. |
@@ -25,14 +27,14 @@ A Helm chart for the application-rbac-validator webhook.
 | controllerManager.replicas | int | `1` | The number of replicas for the controller manager deployment. |
 | controllerManager.serviceAccount | object | `{"annotations":{}}` | Service account configuration for the controller manager. |
 | controllerManager.serviceAccount.annotations | object | `{}` | Annotations to add to the service account. |
-| kubernetesClusterDomain | string | `""` | The Kubernetes cluster domain. |
-| metricsService | object | `{"ports":[{"name":"https","port":8443,"protocol":"TCP","targetPort":8443}],"type":"ClusterIP"}` | Configuration for the metrics service. |
-| metricsService.ports | list | `[{"name":"https","port":8443,"protocol":"TCP","targetPort":8443}]` | List of ports to expose for the metrics service. |
-| metricsService.ports[0].name | string | `"https"` | The name of the port. |
-| metricsService.ports[0].port | int | `8443` | The port number exposed by the service. |
-| metricsService.ports[0].protocol | string | `"TCP"` | The protocol used by the port (e.g., TCP, UDP, SCTP). |
-| metricsService.ports[0].targetPort | int | `8443` | The target port on the pods to which the service sends traffic. |
-| metricsService.type | string | `"ClusterIP"` | The type of service (e.g., ClusterIP, NodePort, LoadBalancer). |
+| metrics.enabled | bool | `true` | Enable or disable the metrics service. |
+| metrics.service | object | `{"ports":[{"name":"https","port":8443,"protocol":"TCP","targetPort":8443}],"type":"ClusterIP"}` | Configuration for the metrics service. |
+| metrics.service.ports | list | `[{"name":"https","port":8443,"protocol":"TCP","targetPort":8443}]` | List of ports to expose for the metrics service. |
+| metrics.service.ports[0].name | string | `"https"` | The name of the port. |
+| metrics.service.ports[0].port | int | `8443` | The port number exposed by the service. |
+| metrics.service.ports[0].protocol | string | `"TCP"` | The protocol used by the port (e.g., TCP, UDP, SCTP). |
+| metrics.service.ports[0].targetPort | int | `8443` | The target port on the pods to which the service sends traffic. |
+| metrics.service.type | string | `"ClusterIP"` | The type of service (e.g., ClusterIP, NodePort, LoadBalancer). |
 | webhook | object | `{"namespaceSelector":{}}` | Configuration for the webhook. |
 | webhook.namespaceSelector | object | `{}` | Namespace selector configuration for the validating webhook. |
 | webhookService | object | `{"ports":[{"port":443,"protocol":"TCP","targetPort":9443}],"type":"ClusterIP"}` | Configuration for the webhook service. |

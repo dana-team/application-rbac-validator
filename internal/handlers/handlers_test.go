@@ -14,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
@@ -208,14 +207,6 @@ func TestHandleCreateOrUpdate(t *testing.T) {
 				t.Fatalf("failed to get application: %v", err)
 			}
 
-			if !controllerutil.ContainsFinalizer(updatedApp, common.FinalizerName) && !utils.IsInCluster(tc.app.Spec.Destination.Server) {
-				nsList := utils.ExtractNamespacesFromSecret(tc.secret)
-				clusterWideRaw, ok := tc.secret.Data[common.ClusterResourcesKey]
-				clusterWide := ok && string(clusterWideRaw) == "true"
-				if !clusterWide && len(nsList) > 0 {
-					t.Errorf("expected finalizer to be added to %s", tc.app.Name)
-				}
-			}
 		})
 	}
 }
@@ -233,9 +224,8 @@ func TestHandleDelete(t *testing.T) {
 			name: "should remove namespace when no other app uses it",
 			app: &argoprojv1alpha1.Application{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:       testAppName,
-					Namespace:  testNamespace,
-					Finalizers: []string{common.FinalizerName},
+					Name:      testAppName,
+					Namespace: testNamespace,
 				},
 				Spec: argoprojv1alpha1.ApplicationSpec{
 					Destination: argoprojv1alpha1.ApplicationDestination{
@@ -261,9 +251,8 @@ func TestHandleDelete(t *testing.T) {
 			name: "should keep namespace when other app uses it",
 			app: &argoprojv1alpha1.Application{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:       testAppName,
-					Namespace:  testNamespace,
-					Finalizers: []string{common.FinalizerName},
+					Name:      testAppName,
+					Namespace: testNamespace,
 				},
 				Spec: argoprojv1alpha1.ApplicationSpec{
 					Destination: argoprojv1alpha1.ApplicationDestination{
@@ -302,9 +291,8 @@ func TestHandleDelete(t *testing.T) {
 			name: "should remove only target namespace from list",
 			app: &argoprojv1alpha1.Application{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:       testAppName,
-					Namespace:  testNamespace,
-					Finalizers: []string{common.FinalizerName},
+					Name:      testAppName,
+					Namespace: testNamespace,
 				},
 				Spec: argoprojv1alpha1.ApplicationSpec{
 					Destination: argoprojv1alpha1.ApplicationDestination{
@@ -325,33 +313,6 @@ func TestHandleDelete(t *testing.T) {
 			},
 			expectError:    false,
 			expectedNsList: []string{testDestNamespace2},
-		},
-		{
-			name: "should do nothing if no finalizer present",
-			app: &argoprojv1alpha1.Application{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      testAppName,
-					Namespace: testNamespace,
-				},
-				Spec: argoprojv1alpha1.ApplicationSpec{
-					Destination: argoprojv1alpha1.ApplicationDestination{
-						Server:    testClusterServer,
-						Namespace: testDestNamespace,
-					},
-				},
-			},
-			otherApps: []*argoprojv1alpha1.Application{},
-			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      testSecretName,
-					Namespace: testNamespace,
-				},
-				Data: map[string][]byte{
-					common.NamespaceKey: []byte(testDestNamespace),
-				},
-			},
-			expectError:    false,
-			expectedNsList: []string{testDestNamespace},
 		},
 	}
 
@@ -399,17 +360,6 @@ func TestHandleDelete(t *testing.T) {
 				}
 			}
 
-			if controllerutil.ContainsFinalizer(tc.app, common.FinalizerName) {
-				updatedApp := &argoprojv1alpha1.Application{}
-				err = cl.Get(ctx, types.NamespacedName{Name: tc.app.Name, Namespace: tc.app.Namespace}, updatedApp)
-				if err != nil {
-					t.Fatalf("failed to get application: %v", err)
-				}
-
-				if controllerutil.ContainsFinalizer(updatedApp, common.FinalizerName) {
-					t.Errorf("expected finalizer to be removed")
-				}
-			}
 		})
 	}
 }

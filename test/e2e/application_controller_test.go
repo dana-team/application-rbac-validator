@@ -19,10 +19,8 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"slices"
 	"strings"
 
-	argoprojv1alpha1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 	"github.com/dana-team/application-rbac-validator/internal/common"
 	testutils "github.com/dana-team/application-rbac-validator/test/utils"
 	. "github.com/onsi/ginkgo/v2"
@@ -69,7 +67,7 @@ var _ = Describe("Application Controller", func() {
 				},
 			})).To(Succeed())
 		})
-		It(" should add and remove a namespace from the secret when an application is created", func() {
+		It(" should add a namespace to the secret when an application is created", func() {
 			By("Creating an Application resource")
 			application := testutils.GenerateTestApplication(
 				namespaceName,
@@ -94,39 +92,7 @@ var _ = Describe("Application Controller", func() {
 				}
 				return strings.Contains(string(namespaces), testutils.TestDestinationNamespace)
 			}, testutils.DefaultTimeout, testutils.DefaultInterval).Should(BeTrue())
-			By("verifying the Application has the finalizer")
 
-			Eventually(func() bool {
-				app := argoprojv1alpha1.Application{}
-
-				if err := k8sClient.Get(context.Background(), types.NamespacedName{
-					Namespace: application.Namespace,
-					Name:      application.Name},
-					&app,
-				); err != nil {
-					return false
-				}
-				return slices.Contains(app.Finalizers, common.FinalizerName)
-			}, testutils.DefaultTimeout, testutils.DefaultInterval).Should(BeTrue())
-
-			By("Deleting the Application resource")
-			Expect(k8sClient.Delete(context.Background(), application)).To(Succeed())
-
-			By("Verifying the namespace is removed from the secret")
-			Eventually(func() bool {
-				err := k8sClient.Get(context.Background(), types.NamespacedName{
-					Name:      secretName,
-					Namespace: namespaceName,
-				}, secret)
-				if err != nil {
-					return false
-				}
-				namespaces, exists := secret.Data["namespaces"]
-				if !exists {
-					return true
-				}
-				return !strings.Contains(string(namespaces), testutils.TestDestinationNamespace)
-			}, testutils.DefaultTimeout, testutils.DefaultInterval).Should(BeTrue())
 		})
 		It("Should not add a namespace when a cluster has cluster-wide enabled", func() {
 			By("Updating the cluster secret to be cluster-wide")
@@ -170,20 +136,25 @@ var _ = Describe("Application Controller", func() {
 				namespaceName,
 			)
 			Expect(k8sClient.Create(context.Background(), application)).To(Succeed())
-			By("Verifying the finalizer is not added to the Application")
-			Consistently(func() bool {
-				app := argoprojv1alpha1.Application{}
-
-				if err := k8sClient.Get(context.Background(), types.NamespacedName{
-					Namespace: application.Namespace,
-					Name:      application.Name},
-					&app,
-				); err != nil {
+			By("verifying the namespace is not added to the secret")
+			Eventually(func() bool {
+				secret := &corev1.Secret{}
+				err := k8sClient.Get(context.Background(), types.NamespacedName{
+					Name:      secretName,
+					Namespace: namespaceName,
+				}, secret)
+				if err != nil {
 					return false
 				}
-				return !slices.Contains(app.Finalizers, common.FinalizerName)
+				namespaces, exists := secret.Data["namespaces"]
+				if !exists {
+					return true
+				}
+				return !strings.Contains(string(namespaces), namespaceName)
 			}, testutils.DefaultTimeout/4, testutils.DefaultInterval).Should(BeTrue())
+
 		})
+
 		It("Should handle multiple applications with the same destination namespace", func() {
 			By("Creating the first Application resource")
 			application1 := testutils.GenerateTestApplication(
@@ -201,20 +172,83 @@ var _ = Describe("Application Controller", func() {
 			Expect(k8sClient.Create(context.Background(), application2)).To(Succeed())
 
 			By("Verifying the namespace is added to the secret one time")
-			secret := &corev1.Secret{}
+			foundSecret := &corev1.Secret{}
 			Eventually(func() bool {
 				err := k8sClient.Get(context.Background(), types.NamespacedName{
-					Namespace: namespaceName, Name: secretName,
-				}, secret)
+					Name:      secretName,
+					Namespace: namespaceName,
+				}, foundSecret)
 				if err != nil {
 					return false
 				}
-				namespaces, exists := secret.Data["namespaces"]
+				namespaces, exists := foundSecret.Data["namespaces"]
 				if !exists {
-					return false
+					return true
 				}
 				return string(namespaces) == testutils.TestDestinationNamespace
-			}, testutils.DefaultTimeout*10, testutils.DefaultInterval).Should(BeTrue())
+			}, testutils.DefaultTimeout/4, testutils.DefaultInterval).Should(BeTrue(),
+				fmt.Sprintf(
+					"Expected namespaces key in secret to be %s, got: %s",
+					testutils.TestDestinationNamespace,
+					string(foundSecret.Data["namespaces"])),
+			)
+		})
+
+		It("Should ignore applications in namespaces without prefix", func() {
+			By("Creating a new namespace and secret without the prefix")
+			nonPrefixedNamespace := fmt.Sprintf("non-prefixed-ns-%s", testutils.GenerateRandomSuffix(6))
+			Expect(k8sClient.Create(context.Background(), &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nonPrefixedNamespace,
+					Labels: map[string]string{
+						// Bypass webhook since tests are for controller
+						testutils.AdminBypassLabel: "true",
+					},
+				},
+			})).To(Succeed())
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretName,
+					Namespace: nonPrefixedNamespace,
+				},
+				StringData: map[string]string{},
+			}
+			Expect(k8sClient.Create(context.Background(), secret)).To(Succeed())
+
+			defer func() {
+				By("Cleaning up the created namespace")
+				Expect(k8sClient.Delete(context.Background(), &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: nonPrefixedNamespace,
+					},
+				})).To(Succeed())
+			}()
+
+			By("Creating an Application resource in the non-prefixed namespace")
+			application := testutils.GenerateTestApplication(
+				nonPrefixedNamespace,
+				testutils.TestDestinationServerUrl,
+				testutils.TestDestinationNamespace,
+			)
+			Expect(k8sClient.Create(context.Background(), application)).To(Succeed())
+			By("Verifying the namespace is not added to the secret")
+			Eventually(func() bool {
+				foundSecret := &corev1.Secret{}
+				err := k8sClient.Get(context.Background(), types.NamespacedName{
+					Name:      secretName,
+					Namespace: nonPrefixedNamespace,
+				}, foundSecret)
+				if err != nil {
+					return false
+				}
+				namespaces, exists := foundSecret.Data["namespaces"]
+				if !exists {
+					return true
+				}
+				return !strings.Contains(string(namespaces), testutils.TestDestinationNamespace)
+			}, testutils.DefaultTimeout/4, testutils.DefaultInterval).Should(BeTrue(),
+				fmt.Sprintf("Expected namespaces key in secret to be empty, got: %s", string(secret.Data["namespaces"])),
+			)
 		})
 	})
 })

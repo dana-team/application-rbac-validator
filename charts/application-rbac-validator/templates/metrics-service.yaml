@@ -6,10 +6,10 @@ metadata:
     control-plane: controller-manager
   {{- include "application-rbac-validator.labels" . | nindent 4 }}
 spec:
-  type: {{ .Values.metricsService.type }}
+  type: {{ .Values.metrics.service.type }}
   selector:
     app.kubernetes.io/name: application-rbac-validator
     control-plane: controller-manager
   {{- include "application-rbac-validator.selectorLabels" . | nindent 4 }}
   ports:
-	{{- .Values.metricsService.ports | toYaml | nindent 2 }}
+ {{ .Values.metrics.service.ports | toYaml | nindent 2 }}

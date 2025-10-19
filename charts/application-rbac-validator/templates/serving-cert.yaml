@@ -9,7 +9,7 @@ spec:
   - '{{ include "application-rbac-validator.fullname" . }}-webhook-service.{{ .Release.Namespace
     }}.svc'
   - '{{ include "application-rbac-validator.fullname" . }}-webhook-service.{{ .Release.Namespace
-    }}.svc.{{ .Values.kubernetesClusterDomain }}'
+    }}.svc.cluster.local'
   issuerRef:
     kind: Issuer
     name: '{{ include "application-rbac-validator.fullname" . }}-selfsigned-issuer'
