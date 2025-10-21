@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -122,10 +123,10 @@ func isBypassLabelValid(labels map[string]string, clusterName string) bool {
 	return false
 }
 
-// IsInCluster checks if the given serverUrl equals any known in-cluster values (e.g., "in-cluster", "kubernetes.svc.cluster.local").
+// IsInCluster checks if the given serverUrl equals any known in-cluster values (e.g., "in-cluster", "kubernetes.default.svc.cluster.local").
 func IsInCluster(serverUrl string) bool {
 	for _, val := range common.InClusterValues {
-		if serverUrl == val {
+		if strings.Contains(serverUrl, val) {
 			return true
 		}
 	}
@@ -312,4 +313,30 @@ func FetchClusterDomain() {
 		common.ServerUrlDomain = domain
 		common.DomainEnvVarFound = true
 	}
+}
+
+// IsDestinationNamespaceInUse checks if any other application is deploying to the same namespace in the same cluster.
+func IsDestinationNamespaceInUse(applicationList *argoprojv1alpha1.ApplicationList, app *argoprojv1alpha1.Application, destinationNS string) bool {
+	for _, otherApp := range applicationList.Items {
+		if otherApp.Name != app.Name && otherApp.Spec.Destination.Namespace == destinationNS && otherApp.Spec.Destination.Server == app.Spec.Destination.Server {
+			return true
+		}
+	}
+	return false
+}
+
+// RetryUpdateSecret retries updating the secret with the new namespace list in case of a conflict.
+func RetryUpdateSecret(ctx context.Context, k8sClient client.Client, app *argoprojv1alpha1.Application, namespaceList []string) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		secret, err := FetchDestinationClusterSecret(ctx, k8sClient, app)
+		if err != nil {
+			return err
+		}
+		secret.Data[common.NamespaceKey] = []byte(strings.Join(namespaceList, ","))
+		if err = k8sClient.Update(ctx, secret); err != nil {
+			return err
+		}
+
+		return nil
+	})
 }

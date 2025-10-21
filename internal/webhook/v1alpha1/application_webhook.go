@@ -22,6 +22,7 @@ import (
 
 	argoprojv1alpha1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 	"github.com/dana-team/application-rbac-validator/internal/common"
+	"github.com/dana-team/application-rbac-validator/internal/handlers"
 	"github.com/dana-team/application-rbac-validator/internal/utils"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -45,8 +46,6 @@ type ApplicationCustomValidator struct {
 	Client                   client.Client
 	destinationClusterClient kubernetes.Interface
 }
-
-var ClusterDomain string
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type Application.
 func (v *ApplicationCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
@@ -75,21 +74,26 @@ func (v *ApplicationCustomValidator) ValidateUpdate(ctx context.Context, oldObj,
 	logger.Info("Validation for Application upon update", "name", newApplication.GetName())
 
 	if utils.IsNotSpecUpdate(oldApplication, newApplication) {
-		logger.V(1).Info("Only a status update, approving automatically.")
+		logger.V(-1).Info("Only a status update, approving automatically.")
 		return nil, nil
 	}
 
 	return nil, validateApplication(ctx, v.Client, v.destinationClusterClient, newApplication)
 }
 
-// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type Application.
+// ValidateDelete triggers a cleanup of the application destination secret.
 func (v *ApplicationCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	return nil, nil
+	log := zap.New().WithName("webhook")
+	application, ok := obj.(*argoprojv1alpha1.Application)
+	if !ok {
+		return nil, fmt.Errorf("expected a Application object but got %T", obj)
+	}
+	log.Info("Cleaning up", "name", application.GetName())
+	return nil, handlers.HandleDelete(log, ctx, v.Client, application)
 }
 
 // validateApplication prevents unauthorized application deployments across clusters or namespaces.
-func validateApplication(ctx context.Context, k8sClient client.Client, destinationClusterClient kubernetes.Interface,
-	application *argoprojv1alpha1.Application) error {
+func validateApplication(ctx context.Context, k8sClient client.Client, destinationClusterClient kubernetes.Interface, application *argoprojv1alpha1.Application) error {
 	logger := zap.New().WithName("webhook")
 	destServer := application.Spec.Destination.Server
 	destNamespace := application.Spec.Destination.Namespace

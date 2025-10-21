@@ -134,7 +134,8 @@ jobs:
           helm upgrade --install my-release charts/application-rbac-validator/ \
           -n application-rbac-validator-system --create-namespace \
           --set controllerManager.manager.image.repository=${IMAGE_REGISTRY}/application-rbac-validator \
-          --set controllerManager.manager.image.tag=test-${GITHUB_REF##*/}
+          --set controllerManager.manager.image.tag=test-${GITHUB_REF##*/} \
+          --set metrics.enabled=false
 
       - name: Check Helm release status
         run: |
