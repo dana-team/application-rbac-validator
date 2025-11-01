@@ -3,7 +3,7 @@ module github.com/dana-team/application-rbac-validator
 go 1.25.1
 
 require (
-	github.com/argoproj/argo-cd/v3 v3.1.8
+	github.com/argoproj/argo-cd/v3 v3.1.9
 	github.com/go-logr/logr v1.4.3
 	github.com/onsi/ginkgo/v2 v2.26.0
 	github.com/onsi/gomega v1.38.2
