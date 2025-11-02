@@ -6,8 +6,18 @@ metadata:
   labels:
   {{- include "application-rbac-validator.labels" . | nindent 4 }}
 spec:
-  matchLabels:
-    labels:
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  endpoints:
+      - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+        path: /metrics
+        port: https
+        scheme: https
+        tlsConfig:
+          insecureSkipVerify: true
+  selector:
+    matchLabels:
       app.kubernetes.io/name: application-rbac-validator
       control-plane: controller-manager
 {{- end}}

@@ -7,6 +7,7 @@ const (
 	ArgoInstanceNameConfigMapKey     = "instance_name"
 	InstanceUsersAccessLevelResource = "pods"
 	AdminBypassLabel                 = "argocd.dana.io/bypass-rbac-validation"
+	BypassOptimizationLabel          = "argocd.dana.io/bypass-optimization"
 	DefaultServerUrlPort             = "6443"
 	NamespaceKey                     = "namespaces"
 	ClusterResourcesKey              = "clusterResources"

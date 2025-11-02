@@ -1,6 +1,8 @@
 package utils
 
-import "time"
+import (
+	"time"
+)
 
 const (
 	TestDestinationNamespace              = "test-namespace"
@@ -16,7 +18,6 @@ const (
 	ArgoInstanceNameConfigMapData         = "argo-instance-name"
 	InvalidArgoInstanceUsersConfigMapKey  = "not-users"
 	InvalidArgoInstanceNameConfigMapKey   = "not-project-name"
-	AdminBypassLabel                      = "argocd.dana.io/bypass-rbac-validation"
 	WebhookNamespaceDir                   = "/tmp"
 	WebhookNamespaceTestPath              = WebhookNamespaceDir + "/namespace"
 )

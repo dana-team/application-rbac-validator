@@ -17,7 +17,7 @@ var (
 			Name: "application_optimization_status",
 			Help: "Indicates whether the application is optimized (1) or not (0)",
 		},
-		[]string{"name", "namespace", "destination", "reason"},
+		[]string{"name", "destination_namespace", "destination", "reason"},
 	)
 )
 

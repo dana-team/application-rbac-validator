@@ -42,7 +42,7 @@ var _ = Describe("Application Controller", func() {
 					Name: namespaceName,
 					Labels: map[string]string{
 						// Bypass webhook since tests are for controller
-						testutils.AdminBypassLabel: "true",
+						common.AdminBypassLabel: "true",
 					},
 				},
 			})).To(Succeed())
@@ -67,7 +67,7 @@ var _ = Describe("Application Controller", func() {
 				},
 			})).To(Succeed())
 		})
-		It(" should add a namespace to the secret when an application is created", func() {
+		It("should add a namespace to the secret when an application is created", func() {
 			By("Creating an Application resource")
 			application := testutils.GenerateTestApplication(
 				namespaceName,
@@ -94,7 +94,7 @@ var _ = Describe("Application Controller", func() {
 			}, testutils.DefaultTimeout, testutils.DefaultInterval).Should(BeTrue())
 
 		})
-		It("Should not add a namespace when a cluster has cluster-wide enabled", func() {
+		It("Should add a namespace when a cluster has cluster-wide enabled", func() {
 			By("Updating the cluster secret to be cluster-wide")
 			secret := &corev1.Secret{}
 			Expect(k8sClient.Get(context.Background(), types.NamespacedName{
@@ -111,9 +111,46 @@ var _ = Describe("Application Controller", func() {
 			)
 			Expect(k8sClient.Create(context.Background(), application)).To(Succeed())
 
-			By("Verifying the namespace is not added to the secret")
+			By("Verifying the namespace is added to the secret")
 			secret = &corev1.Secret{}
-			Consistently(func() bool {
+			Eventually(func() bool {
+				err := k8sClient.Get(context.Background(), types.NamespacedName{
+					Name:      secretName,
+					Namespace: namespaceName,
+				}, secret)
+				if err != nil {
+					return false
+				}
+				namespaces, exists := secret.Data["namespaces"]
+				if !exists {
+					return false
+				}
+				return strings.Contains(string(namespaces), testutils.TestDestinationNamespace)
+			}, testutils.DefaultTimeout, testutils.DefaultInterval).Should(BeTrue())
+		})
+		It("Should not add a namespace when the destination secret has the bypass label", func() {
+			By("Adding the bypass label to the secret")
+			secret := &corev1.Secret{}
+			Expect(k8sClient.Get(context.Background(), types.NamespacedName{
+				Name:      secretName,
+				Namespace: namespaceName,
+			}, secret)).To(Succeed())
+			if secret.Labels == nil {
+				secret.Labels = make(map[string]string)
+			}
+			secret.Labels[common.BypassOptimizationLabel] = "true"
+			Expect(k8sClient.Update(context.Background(), secret)).To(Succeed())
+			By("Creating an Application resource")
+			application := testutils.GenerateTestApplication(
+				namespaceName,
+				testutils.TestDestinationServerUrl,
+				testutils.TestDestinationNamespace,
+			)
+			Expect(k8sClient.Create(context.Background(), application)).To(Succeed())
+
+			By("Verifying the namespace is not added to the secret")
+			Eventually(func() bool {
+				secret := &corev1.Secret{}
 				err := k8sClient.Get(context.Background(), types.NamespacedName{
 					Name:      secretName,
 					Namespace: namespaceName,
@@ -202,7 +239,7 @@ var _ = Describe("Application Controller", func() {
 					Name: nonPrefixedNamespace,
 					Labels: map[string]string{
 						// Bypass webhook since tests are for controller
-						testutils.AdminBypassLabel: "true",
+						common.AdminBypassLabel: "true",
 					},
 				},
 			})).To(Succeed())
