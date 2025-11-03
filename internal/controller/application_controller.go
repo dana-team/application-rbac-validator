@@ -60,7 +60,7 @@ func (r *ApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	log := baseLogger.WithValues("app", app.Name, "destination", app.Spec.Destination.Server)
 	if utils.IsInCluster(app.Spec.Destination.Server) {
 		log.Info("application is targeting in-cluster, ignoring...", "app", app.Name)
-		metrics.ObserveApplicationOptimizationStatus(app.Name, app.Namespace, app.Spec.Destination.Server, "in-cluster", false)
+		metrics.ObserveApplicationOptimizationStatus(app.Name, app.Namespace, app.Spec.Destination.Namespace, app.Spec.Destination.Server, "in-cluster", false)
 		return ctrl.Result{}, nil
 	}
 
