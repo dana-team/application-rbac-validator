@@ -340,3 +340,16 @@ func RetryUpdateSecret(ctx context.Context, k8sClient client.Client, app *argopr
 		return nil
 	})
 }
+
+// ShouldBypassOptimization checks if the secret has the bypass optimization key set to "true".
+func ShouldBypassOptimization(secret *corev1.Secret) bool {
+	if secret.Labels == nil {
+		return false
+	}
+	bypassValue, ok := secret.Labels[common.BypassOptimizationLabel]
+	if !ok {
+		return false
+	}
+
+	return strings.ToLower(bypassValue) == "true"
+}

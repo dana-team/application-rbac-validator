@@ -22,12 +22,14 @@ func HandleCreateOrUpdate(log logr.Logger, ctx context.Context, cl client.Client
 		log.Error(err, "Failed to fetch secret for application", "app", app.Name)
 		return err
 	}
-	namespaceList := utils.ExtractNamespacesFromSecret(secret)
-	if IsClusterWide(secret) {
-		log.Info("Clusterwide enabled, not optimizing", "app", app.Name, "cluster", app.Spec.Destination.Server)
-		metrics.ObserveApplicationOptimizationStatus(app.Name, app.Namespace, app.Spec.Destination.Server, "cluster-wide", false)
+
+	if utils.ShouldBypassOptimization(secret) {
+		log.Info("Bypass optimization label exists on destination secret, skipping ...", "app", app.Name, "cluster", app.Spec.Destination.Server)
+		metrics.ObserveApplicationOptimizationStatus(app.Name, app.Namespace, app.Spec.Destination.Server, "bypass-label", false)
 		return nil
 	}
+
+	namespaceList := utils.ExtractNamespacesFromSecret(secret)
 	if destinationNS != "" && !slices.Contains(namespaceList, destinationNS) {
 		err = utils.RetryUpdateSecret(ctx, cl, app, append(namespaceList, destinationNS))
 		if err != nil {
@@ -70,8 +72,8 @@ func HandleDelete(log logr.Logger, ctx context.Context, cl client.Client, app *a
 		log.Error(err, "Failed to fetch secret for application", "app", app.Name)
 		return err
 	}
-	if IsClusterWide(secret) {
-		log.Info("Clusterwide enabled, not optimizing", "app", app.Name, "cluster", app.Spec.Destination.Server)
+	if utils.ShouldBypassOptimization(secret) {
+		log.Info("Destination secret has bypass label, skipping...", "app", app.Name, "cluster", app.Spec.Destination.Server)
 		metrics.DeleteApplicationOptimizationStatus(app.Name, app.Namespace, app.Spec.Destination.Server)
 		return nil
 	}

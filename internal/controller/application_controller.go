@@ -54,6 +54,9 @@ func (r *ApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		baseLogger.Error(err, "unable to fetch Application")
 		return ctrl.Result{}, err
 	}
+	if !strings.HasPrefix(app.Namespace, r.NamespacePrefix) {
+		return ctrl.Result{}, nil
+	}
 	log := baseLogger.WithValues("app", app.Name, "destination", app.Spec.Destination.Server)
 	if utils.IsInCluster(app.Spec.Destination.Server) {
 		log.Info("application is targeting in-cluster, ignoring...", "app", app.Name)
