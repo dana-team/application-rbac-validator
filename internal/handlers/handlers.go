@@ -25,7 +25,7 @@ func HandleCreateOrUpdate(log logr.Logger, ctx context.Context, cl client.Client
 
 	if utils.ShouldBypassOptimization(secret) {
 		log.Info("Bypass optimization label exists on destination secret, skipping ...", "app", app.Name, "cluster", app.Spec.Destination.Server)
-		metrics.ObserveApplicationOptimizationStatus(app.Name, app.Namespace, app.Spec.Destination.Server, "bypass-label", false)
+		metrics.ObserveApplicationOptimizationStatus(app.Name, app.Namespace, app.Spec.Destination.Namespace, app.Spec.Destination.Server, "bypass-label", false)
 		return nil
 	}
 
@@ -40,7 +40,7 @@ func HandleCreateOrUpdate(log logr.Logger, ctx context.Context, cl client.Client
 		log.Info("Updated secret with new namespace", "secretName", secret.Name, "namespace", destinationNS)
 	}
 
-	metrics.ObserveApplicationOptimizationStatus(app.Name, app.Namespace, app.Spec.Destination.Server, "optimized", true)
+	metrics.ObserveApplicationOptimizationStatus(app.Name, app.Namespace, app.Spec.Destination.Namespace, app.Spec.Destination.Server, "optimized", true)
 
 	return nil
 
@@ -59,7 +59,7 @@ func IsClusterWide(secret *corev1.Secret) bool {
 func HandleDelete(log logr.Logger, ctx context.Context, cl client.Client, app *argoprojv1alpha1.Application) error {
 	if utils.IsInCluster(app.Spec.Destination.Server) {
 		log.Info("application is targeting in-cluster, ignoring...", "app", app.Name)
-		metrics.ObserveApplicationOptimizationStatus(app.Name, app.Namespace, app.Spec.Destination.Server, "in-cluster", false)
+		metrics.ObserveApplicationOptimizationStatus(app.Name, app.Namespace, app.Spec.Destination.Namespace, app.Spec.Destination.Server, "in-cluster", false)
 		return nil
 	}
 	secret, err := utils.FetchDestinationClusterSecret(ctx, cl, app)
