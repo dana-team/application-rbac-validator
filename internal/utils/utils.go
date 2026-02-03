@@ -49,6 +49,9 @@ func ValidateServerUrlFormat(destServer string) bool {
 // ExtractClusterName parses the destServer URL and returns the cluster name (e.g. "my-cluster")
 // if the URL is valid and matches the expected format.
 func ExtractClusterName(destServer string) string {
+	if IsInCluster(destServer) {
+		return common.InClusterValues[0]
+	}
 	if ValidateServerUrlFormat(destServer) {
 		parsedUrl, _ := url.Parse(destServer)
 		host := parsedUrl.Hostname()

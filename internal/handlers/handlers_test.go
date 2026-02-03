@@ -323,7 +323,9 @@ func TestHandleDelete(t *testing.T) {
 			_ = argoprojv1alpha1.AddToScheme(scheme)
 			_ = corev1.AddToScheme(scheme)
 
-			objects := []client.Object{tc.app, tc.secret}
+			//nolint:prealloc
+			objects := []client.Object{}
+			objects = append(objects, tc.app, tc.secret)
 			for _, app := range tc.otherApps {
 				objects = append(objects, app)
 			}
