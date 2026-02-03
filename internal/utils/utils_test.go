@@ -136,6 +136,11 @@ func TestExtractClusterName(t *testing.T) {
 			server:   "in-cluster",
 			expected: "in-cluster",
 		},
+		{
+			name:     "should return input for kubernetes.svc.cluster.local",
+			server:   "kubernetes.svc.cluster.local",
+			expected: "in-cluster",
+		},
 	}
 
 	for _, tc := range testCases {
