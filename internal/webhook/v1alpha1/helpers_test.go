@@ -114,6 +114,45 @@ var testCases = []struct {
 		expectToSucceed:                true,
 	},
 	{
+		name: "should allow valid Application with destination name instead of server",
+		spec: argoprojv1alpha1.ApplicationSpec{
+			Destination: argoprojv1alpha1.ApplicationDestination{
+				Namespace: testutils.TestDestinationNamespace,
+				Name:      testutils.TestDestinationServerName,
+			},
+		},
+		serverTokenKey:                 testutils.TestDestinationServerName,
+		argoInstanceNameConfigMapKey:   common.ArgoInstanceNameConfigMapKey,
+		argoInstanceUsersConfigMapKey:  common.ArgoInstanceUsersConfigMapKey,
+		argoInstanceUsersConfigMapData: testutils.ArgoInstanceUsersConfigMapData,
+		expectToSucceed:                true,
+	},
+	{
+		name: "should reject Application with destination name if token is missing",
+		spec: argoprojv1alpha1.ApplicationSpec{
+			Destination: argoprojv1alpha1.ApplicationDestination{
+				Namespace: testutils.TestDestinationNamespace,
+				Name:      testutils.TestDestinationServerName,
+			},
+		},
+		serverTokenKey:                testutils.ErrorTokenServerUrl,
+		argoInstanceNameConfigMapKey:  common.ArgoInstanceNameConfigMapKey,
+		argoInstanceUsersConfigMapKey: testutils.InvalidArgoInstanceUsersConfigMapKey,
+	},
+	{
+		name: "should reject Application with destination name if users don't have permissions",
+		spec: argoprojv1alpha1.ApplicationSpec{
+			Destination: argoprojv1alpha1.ApplicationDestination{
+				Namespace: testutils.TestDestinationNamespace,
+				Name:      testutils.TestDestinationServerName,
+			},
+		},
+		serverTokenKey:                 testutils.TestDestinationServerName,
+		argoInstanceNameConfigMapKey:   common.ArgoInstanceNameConfigMapKey,
+		argoInstanceUsersConfigMapKey:  common.ArgoInstanceUsersConfigMapKey,
+		argoInstanceUsersConfigMapData: testutils.InvalidArgoInstanceUsersConfigMapData,
+	},
+	{
 		name: "should allow valid Application with general bypass label",
 		spec: argoprojv1alpha1.ApplicationSpec{
 			Destination: argoprojv1alpha1.ApplicationDestination{
@@ -188,6 +227,19 @@ var testCases = []struct {
 		argoInstanceNameConfigMapKey:  common.ArgoInstanceNameConfigMapKey,
 		argoInstanceUsersConfigMapKey: testutils.InvalidArgoInstanceUsersConfigMapKey,
 		isManagementApplication:       true,
+		expectToSucceed:               true,
+	},
+	{
+		name: "should allow valid Application with destination name and bypass label",
+		spec: argoprojv1alpha1.ApplicationSpec{
+			Destination: argoprojv1alpha1.ApplicationDestination{
+				Namespace: testutils.TestDestinationNamespace,
+				Name:      testutils.TestDestinationServerName,
+			},
+		},
+		argoInstanceNameConfigMapKey:  common.ArgoInstanceNameConfigMapKey,
+		argoInstanceUsersConfigMapKey: testutils.InvalidArgoInstanceUsersConfigMapKey,
+		bypassLabel:                   common.AdminBypassLabel + "-" + testutils.TestDestinationServerName,
 		expectToSucceed:               true,
 	},
 }

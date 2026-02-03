@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	argoprojv1alpha1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 	"github.com/dana-team/application-rbac-validator/internal/common"
@@ -95,6 +96,7 @@ func (v *ApplicationCustomValidator) ValidateDelete(ctx context.Context, obj run
 // validateApplication prevents unauthorized application deployments across clusters or namespaces.
 func validateApplication(ctx context.Context, k8sClient client.Client, destinationClusterClient kubernetes.Interface, application *argoprojv1alpha1.Application) error {
 	logger := zap.New().WithName("webhook")
+	destName := application.Spec.Destination.Name
 	destServer := application.Spec.Destination.Server
 	destNamespace := application.Spec.Destination.Namespace
 	appNamespace := application.GetNamespace()
@@ -103,8 +105,8 @@ func validateApplication(ctx context.Context, k8sClient client.Client, destinati
 		"destinationServer", destServer,
 	)
 
-	if destNamespace == "" || destServer == "" {
-		return fmt.Errorf("destination namespace and server must be specified")
+	if destNamespace == "" || (destName == "" && destServer == "") {
+		return fmt.Errorf("destination namespace and either name or server must be specified")
 	}
 
 	utils.FetchClusterDomain()
@@ -112,12 +114,26 @@ func validateApplication(ctx context.Context, k8sClient client.Client, destinati
 		logger.Info(fmt.Sprintf("Failed to fetch env var %s, validation might fail if server is not a URL", common.ClusterDomainEnvVar))
 	}
 
+	var clusterName string
+	var configMapKey string
+	var serverURL string
+	if destName != "" {
+		clusterName = destName
+		configMapKey = fmt.Sprintf("%s-%s-%s-token", destName, strings.ToLower(common.ServerUrlDomain), common.DefaultServerUrlPort)
+		serverURL = utils.BuildServerUrl(destName)
+
+	} else {
+		clusterName = utils.ExtractClusterName(destServer)
+		configMapKey = utils.FormatFileSafeServerURL(destServer) + "-token"
+		serverURL = destServer
+	}
+
 	logger.Info("Checking if bypass label exists on the Application's namespace")
-	isBypassLabelExists, err := utils.BypassLabelExists(ctx, k8sClient, appNamespace, utils.ExtractClusterName(destServer))
+	doesBypassLabelExist, err := utils.BypassLabelExists(ctx, k8sClient, appNamespace, clusterName)
 	if err != nil {
 		return fmt.Errorf("failed to check bypass label on the Application's namespace: %w", err)
 	}
-	if isBypassLabelExists {
+	if doesBypassLabelExist {
 		logger.Info("Application approved")
 		return nil
 	}
@@ -138,7 +154,7 @@ func validateApplication(ctx context.Context, k8sClient client.Client, destinati
 
 	logger.Info("Ensuring the Application's server and the destination server are not the same")
 
-	if utils.IsInCluster(destServer) {
+	if utils.IsInCluster(serverURL) {
 		return fmt.Errorf("destination server must not be the same as the Application's current cluster")
 	}
 
@@ -151,13 +167,13 @@ func validateApplication(ctx context.Context, k8sClient client.Client, destinati
 
 	logger.Info("Building destination Server url")
 
-	if !utils.ValidateServerUrlFormat(destServer) {
-		destServer = utils.BuildServerUrl(destServer)
+	if !utils.ValidateServerUrlFormat(serverURL) {
+		serverURL = utils.BuildServerUrl(serverURL)
 	}
 
 	logger.Info("Fetching destination cluster token")
 
-	token, err := utils.FetchClusterToken(ctx, k8sClient, currentNamespace, destServer)
+	token, err := utils.FetchClusterToken(ctx, k8sClient, currentNamespace, configMapKey)
 	if err != nil {
 		return fmt.Errorf("failed to fetch cluster token: %w", err)
 	}
@@ -165,7 +181,7 @@ func validateApplication(ctx context.Context, k8sClient client.Client, destinati
 	logger.Info("Accessing destination cluster")
 
 	if destinationClusterClient == nil {
-		destinationClusterClient, err = utils.BuildClusterClient(destServer, token)
+		destinationClusterClient, err = utils.BuildClusterClient(serverURL, token)
 		if err != nil {
 			return fmt.Errorf("failed to build destination's cluster client: %w", err)
 		}
@@ -178,9 +194,9 @@ func validateApplication(ctx context.Context, k8sClient client.Client, destinati
 		return fmt.Errorf("failed to fetch Application's admins: %w", err)
 	}
 
-	logger.Info("Validating namespace access for account", "account", admins, "namespace", destNamespace, "cluster", destServer)
+	logger.Info("Validating namespace access for account", "account", admins, "namespace", destNamespace, "cluster", serverURL)
 
-	if err := utils.EnsureAnyAdminHasNamespaceAccess(ctx, destinationClusterClient, admins, destNamespace, destServer); err != nil {
+	if err := utils.EnsureAnyAdminHasNamespaceAccess(ctx, destinationClusterClient, admins, destNamespace, serverURL); err != nil {
 		return err
 	}
 

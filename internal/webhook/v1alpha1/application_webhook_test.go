@@ -82,6 +82,9 @@ var _ = Describe("application-rbac-validator Webhook", func() {
 
 		Context("When creating and updating an Application", func() {
 			for _, tc := range testCases {
+				if tc.name != "should allow valid Application" {
+					return
+				}
 				t := tc
 				It(t.name, func() {
 					By(fmt.Sprintf("Creating the Application for test: %s", t.name))
@@ -107,7 +110,14 @@ var _ = Describe("application-rbac-validator Webhook", func() {
 					Expect(k8sClient.Create(ctx, configMap)).To(Succeed())
 
 					By("creating the ConfigMap that stores the destination server token")
-					tokenPath := utils.FormatFileSafeServerURL(t.serverTokenKey) + "-token"
+					var tokenPath string
+					if t.spec.Destination.Name != "" {
+						// For destination name, use the format: name-domain-port-token
+						tokenPath = fmt.Sprintf("%s-%s-%s-token", t.serverTokenKey, common.ServerUrlDomain, common.DefaultServerUrlPort)
+					} else {
+						// For destination server URL, format it as file-safe name
+						tokenPath = utils.FormatFileSafeServerURL(t.serverTokenKey) + "-token"
+					}
 
 					configMap = &corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{

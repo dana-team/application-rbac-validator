@@ -65,6 +65,9 @@ func ExtractClusterName(destServer string) string {
 // BuildServerUrl constructs a full server URL from a partial cluster name according to this format:
 // https://api.my-cluster.domain.example.com:port.
 func BuildServerUrl(clusterName string) string {
+	if IsInCluster(clusterName) {
+		return common.InClusterValues[0]
+	}
 	return fmt.Sprintf("https://api.%s.%s:%s", clusterName, common.ServerUrlDomain, common.DefaultServerUrlPort)
 }
 
@@ -182,9 +185,8 @@ func FetchArgoInstanceUsers(ctx context.Context, k8sClient client.Client, appNam
 }
 
 // FetchClusterToken fetches the token for the destination cluster.
-func FetchClusterToken(ctx context.Context, k8sClient client.Client, appNamespace string, serverURL string) (
+func FetchClusterToken(ctx context.Context, k8sClient client.Client, appNamespace string, configMapKey string) (
 	string, error) {
-	configMapKey := FormatFileSafeServerURL(serverURL) + "-token"
 
 	value, err := fetchConfigMapValue(ctx, k8sClient, appNamespace, common.ClusterTokensConfigMapName, configMapKey)
 	if err != nil {
@@ -287,15 +289,20 @@ func EnsureAnyAdminHasNamespaceAccess(
 
 // FetchDestinationClusterSecret retrieves the secret associated with the destination cluster of the given Application.
 func FetchDestinationClusterSecret(ctx context.Context, k8sClient client.Client, app *argoprojv1alpha1.Application) (*corev1.Secret, error) {
-	destinationURl, err := url.Parse(app.Spec.Destination.Server)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse destination server URL %s: %w", app.Spec.Destination.Server,
-			err)
+	var destination string
+	if app.Spec.Destination.Name != "" {
+		destination = fmt.Sprintf("%s.%s", app.Spec.Destination.Name, strings.ToLower(common.ServerUrlDomain))
+	} else {
+		destinationURl, err := url.Parse(app.Spec.Destination.Server)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse destination server URL %s: %w", app.Spec.Destination.Server, err)
+		}
+		destination = strings.TrimPrefix(destinationURl.Hostname(), "api.")
 	}
-	destination := strings.TrimPrefix(destinationURl.Hostname(), "api.")
+
 	secretName := fmt.Sprintf("%s-%s", destination, common.SecretNameSuffix)
 	secret := &corev1.Secret{}
-	err = k8sClient.Get(ctx, types.NamespacedName{Name: secretName, Namespace: app.Namespace}, secret)
+	err := k8sClient.Get(ctx, types.NamespacedName{Name: secretName, Namespace: app.Namespace}, secret)
 	return secret, err
 }
 

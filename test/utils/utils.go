@@ -86,6 +86,27 @@ func GenerateTestApplication(namespace, destinationServer, destinationNamespace 
 	}
 }
 
+// GenerateTestApplicationWithDestinationName creates a test Argo CD Application object
+// with destination name instead of server.
+func GenerateTestApplicationWithDestinationName(
+	namespace,
+	destinationName,
+	destinationNamespace string,
+) *argoprojv1alpha1.Application {
+	return &argoprojv1alpha1.Application{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-application-" + GenerateRandomSuffix(5),
+			Namespace: namespace,
+		},
+		Spec: argoprojv1alpha1.ApplicationSpec{
+			Destination: argoprojv1alpha1.ApplicationDestination{
+				Name:      destinationName,
+				Namespace: destinationNamespace,
+			},
+		},
+	}
+}
+
 // NewFakeClient creates a new fake client with the provided initial objects.
 func NewFakeClient(initObjs ...client.Object) client.WithWatch {
 	scheme := runtime.NewScheme()

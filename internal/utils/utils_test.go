@@ -172,6 +172,12 @@ func TestBuildServerUrl(t *testing.T) {
 			domain:      "test.io",
 			expected:    "https://api.test-cluster.test.io:6443",
 		},
+		{
+			name:        "should return in-cluster for in-cluster name",
+			clusterName: "in-cluster",
+			domain:      "example.com",
+			expected:    "in-cluster",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -656,14 +662,14 @@ func TestFetchArgoInstanceUsers(t *testing.T) {
 
 func TestFetchClusterToken(t *testing.T) {
 	testCases := []struct {
-		name        string
-		configMap   *corev1.ConfigMap
-		serverURL   string
-		expectError bool
-		expected    string
+		name         string
+		configMap    *corev1.ConfigMap
+		configMapKey string
+		expectError  bool
+		expected     string
 	}{
 		{
-			name: "should fetch token successfully",
+			name: "should fetch token successfully with server URL format",
 			configMap: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      common.ClusterTokensConfigMapName,
@@ -673,9 +679,24 @@ func TestFetchClusterToken(t *testing.T) {
 					"my-cluster-example-com-6443-token": "test-token",
 				},
 			},
-			serverURL:   "https://api.my-cluster.example.com:6443",
-			expectError: false,
-			expected:    "test-token",
+			configMapKey: "my-cluster-example-com-6443-token",
+			expectError:  false,
+			expected:     "test-token",
+		},
+		{
+			name: "should fetch token successfully with destination name format",
+			configMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      common.ClusterTokensConfigMapName,
+					Namespace: "test-namespace",
+				},
+				Data: map[string]string{
+					"prod-cluster-example-com-6443-token": "prod-token",
+				},
+			},
+			configMapKey: "prod-cluster-example-com-6443-token",
+			expectError:  false,
+			expected:     "prod-token",
 		},
 		{
 			name: "should return error when token key missing",
@@ -686,8 +707,8 @@ func TestFetchClusterToken(t *testing.T) {
 				},
 				Data: map[string]string{},
 			},
-			serverURL:   "https://api.my-cluster.example.com:6443",
-			expectError: true,
+			configMapKey: "missing-cluster-example-com-6443-token",
+			expectError:  true,
 		},
 	}
 
@@ -699,7 +720,7 @@ func TestFetchClusterToken(t *testing.T) {
 			cl := testutils.NewFakeClient(tc.configMap)
 
 			ctx := context.Background()
-			result, err := FetchClusterToken(ctx, cl, tc.configMap.Namespace, tc.serverURL)
+			result, err := FetchClusterToken(ctx, cl, tc.configMap.Namespace, tc.configMapKey)
 
 			if tc.expectError && err == nil {
 				t.Errorf("expected error but got none")

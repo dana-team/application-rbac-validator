@@ -192,6 +192,7 @@ var _ = Describe("Application Controller", func() {
 
 		})
 
+		//nolint:dupl
 		It("Should handle multiple applications with the same destination namespace", func() {
 			By("Creating the first Application resource")
 			application1 := testutils.GenerateTestApplication(
@@ -286,6 +287,121 @@ var _ = Describe("Application Controller", func() {
 			}, testutils.DefaultTimeout/4, testutils.DefaultInterval).Should(BeTrue(),
 				fmt.Sprintf("Expected namespaces key in secret to be empty, got: %s", string(secret.Data["namespaces"])),
 			)
+		})
+
+		It("should add a namespace to the secret when an application uses destination name", func() {
+			By("Creating an Application resource with destination name")
+			application := testutils.GenerateTestApplicationWithDestinationName(
+				namespaceName,
+				testutils.TestDestinationServerName,
+				testutils.TestDestinationNamespace,
+			)
+			Expect(k8sClient.Create(context.Background(), application)).To(Succeed())
+
+			By("Verifying the namespace is added to the secret")
+			secret := &corev1.Secret{}
+			Eventually(func() bool {
+				err := k8sClient.Get(context.Background(), types.NamespacedName{
+					Name:      secretName,
+					Namespace: namespaceName,
+				}, secret)
+				if err != nil {
+					return false
+				}
+				namespaces, exists := secret.Data["namespaces"]
+				if !exists {
+					return false
+				}
+				return strings.Contains(string(namespaces), testutils.TestDestinationNamespace)
+			}, testutils.DefaultTimeout, testutils.DefaultInterval).Should(BeTrue())
+
+		})
+
+		//nolint:dupl
+		It("Should handle multiple applications with destination name and same destination namespace", func() {
+			By("Creating the first Application resource with destination name")
+			application1 := testutils.GenerateTestApplicationWithDestinationName(
+				namespaceName,
+				testutils.ClusterHostname,
+				testutils.TestDestinationNamespace,
+			)
+			Expect(k8sClient.Create(context.Background(), application1)).To(Succeed())
+			By("Creating the second Application resource with destination name")
+			application2 := testutils.GenerateTestApplicationWithDestinationName(
+				namespaceName,
+				testutils.ClusterHostname,
+				testutils.TestDestinationNamespace,
+			)
+			Expect(k8sClient.Create(context.Background(), application2)).To(Succeed())
+
+			By("Verifying the namespace is added to the secret one time")
+			foundSecret := &corev1.Secret{}
+			Eventually(func() bool {
+				err := k8sClient.Get(context.Background(), types.NamespacedName{
+					Name:      secretName,
+					Namespace: namespaceName,
+				}, foundSecret)
+				if err != nil {
+					return false
+				}
+				namespaces, exists := foundSecret.Data["namespaces"]
+				if !exists {
+					return false
+				}
+				return string(namespaces) == testutils.TestDestinationNamespace
+			}, testutils.DefaultTimeout/4, testutils.DefaultInterval).Should(BeTrue(),
+				fmt.Sprintf(
+					"Expected namespaces key in secret to be %s, got: %s",
+					testutils.TestDestinationNamespace,
+					string(foundSecret.Data["namespaces"])),
+			)
+		})
+
+		It("Should remove namespace from secret when application with destination name is deleted", func() {
+			By("Creating an Application resource with destination name")
+			application := testutils.GenerateTestApplicationWithDestinationName(
+				namespaceName,
+				testutils.ClusterHostname,
+				testutils.TestDestinationNamespace,
+			)
+			Expect(k8sClient.Create(context.Background(), application)).To(Succeed())
+
+			By("Waiting for the namespace to be added to the secret")
+			Eventually(func() bool {
+				secret := &corev1.Secret{}
+				err := k8sClient.Get(context.Background(), types.NamespacedName{
+					Name:      secretName,
+					Namespace: namespaceName,
+				}, secret)
+				if err != nil {
+					return false
+				}
+				namespaces, exists := secret.Data["namespaces"]
+				if !exists {
+					return false
+				}
+				return strings.Contains(string(namespaces), testutils.TestDestinationNamespace)
+			}, testutils.DefaultTimeout, testutils.DefaultInterval).Should(BeTrue())
+
+			By("Deleting the Application resource")
+			Expect(k8sClient.Delete(context.Background(), application)).To(Succeed())
+
+			By("Verifying the namespace is removed from the secret")
+			Eventually(func() bool {
+				secret := &corev1.Secret{}
+				err := k8sClient.Get(context.Background(), types.NamespacedName{
+					Name:      secretName,
+					Namespace: namespaceName,
+				}, secret)
+				if err != nil {
+					return false
+				}
+				namespaces, exists := secret.Data["namespaces"]
+				if !exists {
+					return true
+				}
+				return !strings.Contains(string(namespaces), testutils.TestDestinationNamespace)
+			}, testutils.DefaultTimeout, testutils.DefaultInterval).Should(BeTrue())
 		})
 	})
 })
