@@ -14,10 +14,12 @@ const (
 	ClusterDomainEnvVarKey           = "KUBERNETES_CLUSTER_DOMAIN"
 	DefaultServerUrlDomain           = "cluster.local"
 	SecretNameSuffix                 = "cluster-secret"
+	ArgoCDSecretTypeLabelKey         = "argocd.argoproj.io/secret-type"
+	ArgoCDSecretTypeClusterValue     = "cluster"
 )
 
 var (
-	InClusterValues               = []string{"in-cluster", "kubernetes.default.svc", "kubernetes.svc.cluster.local"}
+	InClusterValues               = []string{"in-cluster", "kubernetes.default.svc", "kubernetes.default.svc.cluster.local"}
 	InstanceUsersAccessLevelVerbs = []string{"get", "list", "watch", "create", "update", "patch", "delete"}
 	WebhookNamespacePath          = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 )

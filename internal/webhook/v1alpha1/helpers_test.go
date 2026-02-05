@@ -4,6 +4,8 @@ import (
 	argoprojv1alpha1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 	"github.com/dana-team/application-rbac-validator/internal/common"
 	testutils "github.com/dana-team/application-rbac-validator/test/utils"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var testCases = []struct {
@@ -16,6 +18,7 @@ var testCases = []struct {
 	argoInstanceUsersConfigMapData string
 	bypassLabel                    string
 	expectToSucceed                bool
+	clusterSecret                  *corev1.Secret
 }{
 	{
 		name: "should reject Application with empty spec",
@@ -189,5 +192,32 @@ var testCases = []struct {
 		argoInstanceUsersConfigMapKey: testutils.InvalidArgoInstanceUsersConfigMapKey,
 		isManagementApplication:       true,
 		expectToSucceed:               true,
+	},
+	{
+		name: "should resolve destination name to server from secret",
+		spec: argoprojv1alpha1.ApplicationSpec{
+			Destination: argoprojv1alpha1.ApplicationDestination{
+				Namespace: testutils.TestDestinationNamespace,
+				Name:      "test-cluster",
+			},
+		},
+		serverTokenKey:                 testutils.TestDestinationServerUrl,
+		argoInstanceNameConfigMapKey:   common.ArgoInstanceNameConfigMapKey,
+		argoInstanceUsersConfigMapKey:  common.ArgoInstanceUsersConfigMapKey,
+		argoInstanceUsersConfigMapData: testutils.ArgoInstanceUsersConfigMapData,
+		expectToSucceed:                true,
+		clusterSecret: &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-cluster-secret",
+				Namespace: "test-ns",
+				Labels: map[string]string{
+					common.ArgoCDSecretTypeLabelKey: common.ArgoCDSecretTypeClusterValue,
+				},
+			},
+			Data: map[string][]byte{
+				"name":   []byte("test-cluster"),
+				"server": []byte(testutils.TestDestinationServerUrl),
+			},
+		},
 	},
 }

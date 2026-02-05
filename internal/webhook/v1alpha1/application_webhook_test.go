@@ -138,6 +138,13 @@ var _ = Describe("application-rbac-validator Webhook", func() {
 					}
 
 					By(fmt.Sprintf("starting create validation test: %s", t.name))
+					if t.clusterSecret != nil {
+						By("creating the cluster secret for testing")
+						sec := t.clusterSecret.DeepCopy()
+						sec.Namespace = testNamespace
+						Expect(k8sClient.Create(ctx, sec)).To(Succeed())
+					}
+
 					_, err := testValidator.ValidateCreate(ctx, application)
 
 					if !t.expectToSucceed {
