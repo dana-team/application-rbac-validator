@@ -19,10 +19,13 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 
+	"github.com/dana-team/application-rbac-validator/internal/common"
 	"github.com/dana-team/application-rbac-validator/internal/metrics"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -209,8 +212,13 @@ func main() {
 	}
 
 	// nolint:goconst
+	serverUrlDomain, ok := os.LookupEnv(common.ClusterDomainEnvVarKey)
+	if !ok {
+		setupLog.Info(fmt.Sprintf("%s environment variable not set, using default value: %s", common.ClusterDomainEnvVarKey, common.DefaultServerUrlDomain))
+		serverUrlDomain = common.DefaultServerUrlDomain
+	}
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err = webhookargoprojv1alpha1.SetupApplicationWebhookWithManager(mgr); err != nil {
+		if err = webhookargoprojv1alpha1.SetupApplicationWebhookWithManager(mgr, serverUrlDomain); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Application")
 			os.Exit(1)
 		}
@@ -221,6 +229,7 @@ func main() {
 		Scheme:          mgr.GetScheme(),
 		NamespacePrefix: nsPrefix,
 	}).SetupWithManager(mgr); err != nil {
+
 		setupLog.Error(err, "unable to create controller", "controller", "Application")
 		os.Exit(1)
 	}

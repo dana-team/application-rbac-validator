@@ -151,8 +151,6 @@ func TestHandleCreateOrUpdate(t *testing.T) {
 					Name: testNamespace,
 				},
 			}
-			common.ServerUrlDomain = "example.com"
-
 			cl := testutils.NewFakeClient(tc.app, tc.secret, testNS)
 
 			log := logr.Discard()
@@ -318,8 +316,8 @@ func TestHandleDelete(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			common.ServerUrlDomain = "example.com"
 			scheme := runtime.NewScheme()
+
 			_ = argoprojv1alpha1.AddToScheme(scheme)
 			_ = corev1.AddToScheme(scheme)
 

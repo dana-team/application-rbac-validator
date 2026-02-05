@@ -11,14 +11,13 @@ const (
 	DefaultServerUrlPort             = "6443"
 	NamespaceKey                     = "namespaces"
 	ClusterResourcesKey              = "clusterResources"
+	ClusterDomainEnvVarKey           = "KUBERNETES_CLUSTER_DOMAIN"
+	DefaultServerUrlDomain           = "cluster.local"
+	SecretNameSuffix                 = "cluster-secret"
 )
 
 var (
-	InClusterValues               = []string{"in-cluster", "kubernetes.default.svc"}
+	InClusterValues               = []string{"in-cluster", "kubernetes.default.svc", "kubernetes.svc.cluster.local"}
 	InstanceUsersAccessLevelVerbs = []string{"get", "list", "watch", "create", "update", "patch", "delete"}
 	WebhookNamespacePath          = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
-	ClusterDomainEnvVar           = "KUBERNETES_CLUSTER_DOMAIN"
-	ServerUrlDomain               = ""
-	SecretNameSuffix              = "cluster-secret"
-	DomainEnvVarFound             = false
 )

@@ -39,8 +39,6 @@ var _ = Describe("application-rbac-validator Webhook", func() {
 		ctx := context.Background()
 
 		common.WebhookNamespacePath = testutils.WebhookNamespaceTestPath
-		common.ServerUrlDomain = "example.com"
-		common.DomainEnvVarFound = true
 
 		var (
 			testNamespace string
@@ -50,7 +48,8 @@ var _ = Describe("application-rbac-validator Webhook", func() {
 
 		BeforeEach(func() {
 			testValidator = ApplicationCustomValidator{Client: k8sClient,
-				destinationClusterClient: testutils.NewMockedDestinationClusterClient()}
+				destinationClusterClient: testutils.NewMockedDestinationClusterClient(),
+				ServerUrlDomain:          "example.com"}
 			Expect(testValidator).NotTo(BeNil(), "Expected validator to be initialized")
 
 			resourceName = fmt.Sprintf("test-resource-%s", testutils.GenerateRandomSuffix(6))

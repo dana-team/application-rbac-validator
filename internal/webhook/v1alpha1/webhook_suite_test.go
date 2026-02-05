@@ -108,7 +108,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	err = SetupApplicationWebhookWithManager(mgr)
+	err = SetupApplicationWebhookWithManager(mgr, "example.com")
 	Expect(err).NotTo(HaveOccurred())
 
 	// +kubebuilder:scaffold:webhook

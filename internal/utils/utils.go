@@ -64,8 +64,8 @@ func ExtractClusterName(destServer string) string {
 
 // BuildServerUrl constructs a full server URL from a partial cluster name according to this format:
 // https://api.my-cluster.domain.example.com:port.
-func BuildServerUrl(clusterName string) string {
-	return fmt.Sprintf("https://api.%s.%s:%s", clusterName, common.ServerUrlDomain, common.DefaultServerUrlPort)
+func BuildServerUrl(clusterName, domain string) string {
+	return fmt.Sprintf("https://api.%s.%s:%s", clusterName, domain, common.DefaultServerUrlPort)
 }
 
 // GetCurrentNamespace returns the current pod's namespace by reading the in-cluster service account namespace file.
@@ -307,15 +307,6 @@ func ExtractNamespacesFromSecret(secret *corev1.Secret) []string {
 	}
 	return strings.Split(string(namespacesRaw), ",")
 
-}
-
-// FetchClusterDomain retrieves the cluster domain from the environment variable.
-func FetchClusterDomain() {
-	domain, found := os.LookupEnv(common.ClusterDomainEnvVar)
-	if found {
-		common.ServerUrlDomain = domain
-		common.DomainEnvVarFound = true
-	}
 }
 
 // IsDestinationNamespaceInUse checks if any other application is deploying to the same namespace in the same cluster.
