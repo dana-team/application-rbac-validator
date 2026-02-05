@@ -176,11 +176,7 @@ func TestBuildServerUrl(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			originalDomain := common.ServerUrlDomain
-			common.ServerUrlDomain = tc.domain
-			defer func() { common.ServerUrlDomain = originalDomain }()
-
-			result := BuildServerUrl(tc.clusterName)
+			result := BuildServerUrl(tc.clusterName, tc.domain)
 			if result != tc.expected {
 				t.Errorf("expected %v but got %v", tc.expected, result)
 			}

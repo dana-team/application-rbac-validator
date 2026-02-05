@@ -33,9 +33,9 @@ import (
 )
 
 // SetupApplicationWebhookWithManager registers the webhook for Application in the manager.
-func SetupApplicationWebhookWithManager(mgr ctrl.Manager) error {
+func SetupApplicationWebhookWithManager(mgr ctrl.Manager, serverUrlDomain string) error {
 	return ctrl.NewWebhookManagedBy(mgr).For(&argoprojv1alpha1.Application{}).
-		WithValidator(&ApplicationCustomValidator{Client: mgr.GetClient()}).
+		WithValidator(&ApplicationCustomValidator{Client: mgr.GetClient(), ServerUrlDomain: serverUrlDomain}).
 		Complete()
 }
 
@@ -45,6 +45,7 @@ func SetupApplicationWebhookWithManager(mgr ctrl.Manager) error {
 type ApplicationCustomValidator struct {
 	Client                   client.Client
 	destinationClusterClient kubernetes.Interface
+	ServerUrlDomain          string
 }
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type Application.
@@ -56,7 +57,7 @@ func (v *ApplicationCustomValidator) ValidateCreate(ctx context.Context, obj run
 	}
 	logger.Info("Validation for Application upon creation", "name", application.GetName())
 
-	return nil, validateApplication(ctx, v.Client, v.destinationClusterClient, application)
+	return nil, validateApplication(ctx, v.Client, v.destinationClusterClient, application, v.ServerUrlDomain)
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type Application.
@@ -78,7 +79,7 @@ func (v *ApplicationCustomValidator) ValidateUpdate(ctx context.Context, oldObj,
 		return nil, nil
 	}
 
-	return nil, validateApplication(ctx, v.Client, v.destinationClusterClient, newApplication)
+	return nil, validateApplication(ctx, v.Client, v.destinationClusterClient, newApplication, v.ServerUrlDomain)
 }
 
 // ValidateDelete triggers a cleanup of the application destination secret.
@@ -93,7 +94,8 @@ func (v *ApplicationCustomValidator) ValidateDelete(ctx context.Context, obj run
 }
 
 // validateApplication prevents unauthorized application deployments across clusters or namespaces.
-func validateApplication(ctx context.Context, k8sClient client.Client, destinationClusterClient kubernetes.Interface, application *argoprojv1alpha1.Application) error {
+func validateApplication(ctx context.Context, k8sClient client.Client, destinationClusterClient kubernetes.Interface, application *argoprojv1alpha1.Application, serverUrlDomain string) error {
+
 	logger := zap.New().WithName("webhook")
 	destServer := application.Spec.Destination.Server
 	destNamespace := application.Spec.Destination.Namespace
@@ -107,9 +109,8 @@ func validateApplication(ctx context.Context, k8sClient client.Client, destinati
 		return fmt.Errorf("destination namespace and server must be specified")
 	}
 
-	utils.FetchClusterDomain()
-	if !common.DomainEnvVarFound {
-		logger.Info(fmt.Sprintf("Failed to fetch env var %s, validation might fail if server is not a URL", common.ClusterDomainEnvVar))
+	if serverUrlDomain == "" {
+		logger.Info(fmt.Sprintf("Failed to fetch environment variable %s, validation might fail if server is not a URL", common.ClusterDomainEnvVarKey))
 	}
 
 	logger.Info("Checking if bypass label exists on the Application's namespace")
@@ -152,7 +153,7 @@ func validateApplication(ctx context.Context, k8sClient client.Client, destinati
 	logger.Info("Building destination Server url")
 
 	if !utils.ValidateServerUrlFormat(destServer) {
-		destServer = utils.BuildServerUrl(destServer)
+		destServer = utils.BuildServerUrl(destServer, serverUrlDomain)
 	}
 
 	logger.Info("Fetching destination cluster token")
