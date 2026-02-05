@@ -57,9 +57,15 @@ func IsClusterWide(secret *corev1.Secret) bool {
 
 // HandleDelete handles the deletion of an Application resource.
 func HandleDelete(log logr.Logger, ctx context.Context, cl client.Client, app *argoprojv1alpha1.Application) error {
-	if utils.IsInCluster(app.Spec.Destination.Server) {
+	destServer, err := utils.ResolveDestinationServer(ctx, cl, app)
+	if err != nil {
+		log.Error(err, "Failed to resolve destination server", "app", app.Name)
+		return err
+	}
+
+	if utils.IsInCluster(destServer) {
 		log.Info("application is targeting in-cluster, ignoring...", "app", app.Name)
-		metrics.ObserveApplicationOptimizationStatus(app.Name, app.Namespace, app.Spec.Destination.Namespace, app.Spec.Destination.Server, "in-cluster", false)
+		metrics.ObserveApplicationOptimizationStatus(app.Name, app.Namespace, app.Spec.Destination.Namespace, destServer, "in-cluster", false)
 		return nil
 	}
 	secret, err := utils.FetchDestinationClusterSecret(ctx, cl, app)
