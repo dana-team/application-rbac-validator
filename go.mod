@@ -1,6 +1,6 @@
 module github.com/dana-team/application-rbac-validator
 
-go 1.25.1
+go 1.25.6
 
 require (
 	github.com/argoproj/argo-cd/v3 v3.1.9
