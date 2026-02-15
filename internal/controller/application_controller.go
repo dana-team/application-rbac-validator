@@ -57,10 +57,16 @@ func (r *ApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if !strings.HasPrefix(app.Namespace, r.NamespacePrefix) {
 		return ctrl.Result{}, nil
 	}
-	log := baseLogger.WithValues("app", app.Name, "destination", app.Spec.Destination.Server)
-	if utils.IsInCluster(app.Spec.Destination.Server) {
+	resolvedServer, err := utils.ResolveDestinationServer(ctx, r.Client, app)
+	if err != nil {
+		baseLogger.Error(err, "unable to resolve destination server", "app", app.Name)
+		return ctrl.Result{}, err
+	}
+
+	log := baseLogger.WithValues("app", app.Name, "destination", resolvedServer)
+	if utils.IsInCluster(resolvedServer) {
 		log.Info("application is targeting in-cluster, ignoring...", "app", app.Name)
-		metrics.ObserveApplicationOptimizationStatus(app.Name, app.Namespace, app.Spec.Destination.Namespace, app.Spec.Destination.Server, "in-cluster", false)
+		metrics.ObserveApplicationOptimizationStatus(app.Name, app.Namespace, app.Spec.Destination.Namespace, resolvedServer, "in-cluster", false)
 		return ctrl.Result{}, nil
 	}
 
@@ -69,7 +75,7 @@ func (r *ApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// Therefore, we skip processing applications that are being deleted.
 	if !app.DeletionTimestamp.IsZero() {
 		log.Info("application is being deleted, ignoring...", "app", app.Name)
-		metrics.DeleteApplicationOptimizationStatus(app.Name, app.Namespace, app.Spec.Destination.Server)
+		metrics.DeleteApplicationOptimizationStatus(app.Name, app.Namespace, resolvedServer)
 		return ctrl.Result{}, nil
 	}
 	return ctrl.Result{}, handlers.HandleCreateOrUpdate(log, ctx, r.Client, app)

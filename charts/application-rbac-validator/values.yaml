@@ -4,8 +4,8 @@
 
 # -- A mapping of destination server names to cluster access tokens used by the webhook.
 clusterTokens:
-  # -- Example entry for a destination server token.
-  example-destination-server-name-token: "<example_token>"
+  # -- Example entry for a destination server token: 
+  # example-destination-server-name-token: "<example_token>"
 
 # -- Configuration for the controller manager.
 controllerManager:

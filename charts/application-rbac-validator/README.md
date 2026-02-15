@@ -8,8 +8,7 @@ A Helm chart for the application-rbac-validator webhook.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| clusterTokens | object | `{"example-destination-server-name-token":"<example_token>"}` | A mapping of destination server names to cluster access tokens used by the webhook. |
-| clusterTokens.example-destination-server-name-token | string | `"<example_token>"` | Example entry for a destination server token. |
+| clusterTokens | string | `nil` | A mapping of destination server names to cluster access tokens used by the webhook. |
 | config.kubernetesClusterDomain | string | `""` | The Kubernetes cluster domain. |
 | config.namespacePrefix | string | `""` | The namespace prefix for applications managed by the controller. |
 | controllerManager | object | `{"manager":{"args":["--metrics-bind-address=:8443","--leader-elect","--health-probe-bind-address=:8081","--metrics-cert-path=/tmp/k8s-metrics-server/metrics-certs","--webhook-cert-path=/tmp/k8s-webhook-server/serving-certs"],"containerSecurityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}},"image":{"repository":"controller","tag":""},"resources":{"limits":{"cpu":"500m","memory":"128Mi"},"requests":{"cpu":"10m","memory":"64Mi"}}},"replicas":1,"serviceAccount":{"annotations":{}}}` | Configuration for the controller manager. |

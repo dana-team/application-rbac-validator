@@ -42,9 +42,13 @@ jobs:
       - name: switch to source cluster context
         run: kubectl config use-context kind-kind-source-cluster
 
+      - name: Configure Docker for insecure registry
+        run: |
+          echo '{"insecure-registries":["kind-registry:5000"]}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
+
       - name: build and push images to kind registry
         run: make docker-build docker-push IMG=${IMAGE_REGISTRY}/application-rbac-validator:test-${GITHUB_REF##*/}
-
 
       - name: setup clusters for testing
         run: make prereq quickstart
@@ -111,6 +115,10 @@ jobs:
           node_image: kindest/node:${{env.K8S_VERSION}}
           kubectl_version: ${{env.K8S_VERSION}}
 
+      - name: Configure Docker for insecure registry
+        run: |
+          echo '{"insecure-registries":["kind-registry:5000"]}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
 
       - name: build and push images to kind registry
         run: make docker-build docker-push IMG=${IMAGE_REGISTRY}/application-rbac-validator:test-${GITHUB_REF##*/}
