@@ -5,6 +5,7 @@ Ensures that Argo CD Applications comply with organizational policies by validat
 `application-rbac-validator` is a Kubernetes admission webhook designed to enhance security and governance for Argo CD Application resources. 
 This operator enforces strict access controls by validating that applications are only deployed to authorized clusters and namespaces. 
 It supports multi-cluster environments and ensures that only designated administrators have permission to deploy applications to target destinations.
+It supports referencing destination clusters by both **Server URL** and **Cluster Name** (resolving the URL from Argo CD cluster secrets).
 
 This webhook also supports bypass mechanisms through specific namespace labels and recognizes management applications based on naming conventions. By integrating directly with the Kubernetes API and Argo CD configurations, it helps platform teams enforce environment-specific policies, reduce misconfigurations, and maintain compliance across multiple teams and clusters.
 

@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 
 	argoprojv1alpha1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
@@ -11,6 +12,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func TestIsNotSpecUpdate(t *testing.T) {
@@ -705,6 +707,126 @@ func TestFetchClusterToken(t *testing.T) {
 			}
 			if !tc.expectError && result != tc.expected {
 				t.Errorf("expected %v but got %v", tc.expected, result)
+			}
+		})
+	}
+}
+func TestResolveDestinationServer(t *testing.T) {
+	testCases := []struct {
+		name          string
+		app           *argoprojv1alpha1.Application
+		existingObjs  []client.Object
+		expected      string
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name: "should return server if set",
+			app: &argoprojv1alpha1.Application{
+				Spec: argoprojv1alpha1.ApplicationSpec{
+					Destination: argoprojv1alpha1.ApplicationDestination{
+						Server: "https://my-server.com",
+					},
+				},
+			},
+			expected:    "https://my-server.com",
+			expectError: false,
+		},
+		{
+			name: "should return in-cluster server if name is in-cluster",
+			app: &argoprojv1alpha1.Application{
+				Spec: argoprojv1alpha1.ApplicationSpec{
+					Destination: argoprojv1alpha1.ApplicationDestination{
+						Name: "in-cluster",
+					},
+				},
+			},
+			expected:    "kubernetes.svc.cluster.local",
+			expectError: false,
+		},
+		{
+			name: "should return server from secret if name is set",
+			app: &argoprojv1alpha1.Application{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "argocd",
+				},
+				Spec: argoprojv1alpha1.ApplicationSpec{
+					Destination: argoprojv1alpha1.ApplicationDestination{
+						Name: "my-cluster",
+					},
+				},
+			},
+			existingObjs: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-cluster-secret",
+						Namespace: "argocd",
+						Labels: map[string]string{
+							common.ArgoCDSecretTypeLabelKey: common.ArgoCDSecretTypeClusterValue,
+						},
+					},
+					Data: map[string][]byte{
+						"name":   []byte("my-cluster"),
+						"server": []byte("https://my-cluster-server.com"),
+					},
+				},
+			},
+			expected:    "https://my-cluster-server.com",
+			expectError: false,
+		},
+		{
+			name: "should fail if secret not found",
+			app: &argoprojv1alpha1.Application{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "argocd",
+				},
+				Spec: argoprojv1alpha1.ApplicationSpec{
+					Destination: argoprojv1alpha1.ApplicationDestination{
+						Name: "unknown-cluster",
+					},
+				},
+			},
+			expectError:   true,
+			errorContains: "not found",
+		},
+		{
+			name: "should fail if neither server nor name set",
+			app: &argoprojv1alpha1.Application{
+				Spec: argoprojv1alpha1.ApplicationSpec{
+					Destination: argoprojv1alpha1.ApplicationDestination{},
+				},
+			},
+			expectError:   true,
+			errorContains: "must be specified",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			_ = corev1.AddToScheme(scheme)
+			c := testutils.NewFakeClient(tc.existingObjs...)
+			ctx := context.Background()
+
+			result, err := ResolveDestinationServer(ctx, c, tc.app)
+
+			if tc.expectError {
+				if err == nil {
+					t.Error("expected error but got none")
+				} else if tc.errorContains != "" && !strings.Contains(err.Error(), tc.errorContains) {
+					t.Errorf("expected error containing %q but got %q", tc.errorContains, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+				if tc.name == "should return in-cluster server if name is in-cluster" {
+					if !strings.Contains(result, "kubernetes") && !strings.Contains(result, "svc") {
+						t.Errorf("expected result to look like in-cluster address but got %q", result)
+					}
+				} else if result != tc.expected {
+					t.Errorf("expected %q but got %q", tc.expected, result)
+				}
 			}
 		})
 	}

@@ -77,6 +77,51 @@ func GetCurrentNamespace() (string, error) {
 	return strings.TrimSpace(string(data)), nil
 }
 
+// ResolveDestinationServer resolves the server URL for the Application:
+//  1. If Server is set, returns it immediately.
+//  2. If Name is set to "in-cluster" (or typical in-cluster aliases), returns the default in-cluster service URL.
+//  3. If Name is set to anything else, searches for a Secret in app.Namespace
+//     labeled 'argocd.argoproj.io/secret-type=cluster' where data['name'] == <Name>,
+//     and returns data['server'].
+//  4. Returns error if neither is resolvable.
+func ResolveDestinationServer(ctx context.Context, c client.Client, app *argoprojv1alpha1.Application) (string, error) {
+	destServer := app.Spec.Destination.Server
+	destName := app.Spec.Destination.Name
+	if destServer != "" {
+		return destServer, nil
+	}
+
+	if destName != "" {
+		if IsInCluster(destName) {
+			return common.InClusterValues[1], nil
+		}
+
+		secretList := &corev1.SecretList{}
+		labelSelector := client.MatchingLabels{
+			common.ArgoCDSecretTypeLabelKey: common.ArgoCDSecretTypeClusterValue,
+		}
+
+		if err := c.List(ctx, secretList, client.InNamespace(app.Namespace), labelSelector); err != nil {
+			return "", fmt.Errorf("failed to list cluster secrets in namespace %s: %w", app.Namespace, err)
+		}
+
+		for _, secret := range secretList.Items {
+			secretNameBytes, nameFound := secret.Data["name"]
+			if nameFound && string(secretNameBytes) == destName {
+				serverBytes, serverFound := secret.Data["server"]
+				if serverFound {
+					return string(serverBytes), nil
+				}
+				return "", fmt.Errorf("destination cluster secret %q found but missing 'server' field", secret.Name)
+			}
+		}
+
+		return "", fmt.Errorf("destination cluster with name %q not found in namespace %q", destName, app.Namespace)
+	}
+
+	return "", fmt.Errorf("destination server or name must be specified")
+}
+
 // IsManagementApplication checks whether the given application name
 // follows the pattern "<argoInstanceName>-mgmt".
 func IsManagementApplication(argoInstanceName, applicationName string) bool {
@@ -126,10 +171,10 @@ func isBypassLabelValid(labels map[string]string, clusterName string) bool {
 	return false
 }
 
-// IsInCluster checks if the given serverUrl equals any known in-cluster values (e.g., "in-cluster", "kubernetes.default.svc.cluster.local").
-func IsInCluster(serverUrl string) bool {
+// IsInCluster checks if the given value equals any known in-cluster values (e.g., "in-cluster", "kubernetes.default.svc.cluster.local").
+func IsInCluster(server string) bool {
 	for _, val := range common.InClusterValues {
-		if strings.Contains(serverUrl, val) {
+		if strings.Contains(server, val) {
 			return true
 		}
 	}
@@ -287,11 +332,17 @@ func EnsureAnyAdminHasNamespaceAccess(
 
 // FetchDestinationClusterSecret retrieves the secret associated with the destination cluster of the given Application.
 func FetchDestinationClusterSecret(ctx context.Context, k8sClient client.Client, app *argoprojv1alpha1.Application) (*corev1.Secret, error) {
-	destinationURl, err := url.Parse(app.Spec.Destination.Server)
+
+	destinationServer, err := ResolveDestinationServer(ctx, k8sClient, app)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse destination server URL %s: %w", app.Spec.Destination.Server,
-			err)
+		return nil, fmt.Errorf("failed to resolve destination server: %w", err)
 	}
+
+	destinationURl, err := url.Parse(destinationServer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse destination server URL %s: %w", destinationServer, err)
+	}
+
 	destination := strings.TrimPrefix(destinationURl.Hostname(), "api.")
 	secretName := fmt.Sprintf("%s-%s", destination, common.SecretNameSuffix)
 	secret := &corev1.Secret{}

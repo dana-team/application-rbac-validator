@@ -97,17 +97,21 @@ func (v *ApplicationCustomValidator) ValidateDelete(ctx context.Context, obj run
 func validateApplication(ctx context.Context, k8sClient client.Client, destinationClusterClient kubernetes.Interface, application *argoprojv1alpha1.Application, serverUrlDomain string) error {
 
 	logger := zap.New().WithName("webhook")
-	destServer := application.Spec.Destination.Server
 	destNamespace := application.Spec.Destination.Namespace
 	appNamespace := application.GetNamespace()
+
+	if destNamespace == "" || (application.Spec.Destination.Server == "" && application.Spec.Destination.Name == "") {
+		return fmt.Errorf("destination namespace and (server or name) must be specified")
+	}
+
+	destServer, err := utils.ResolveDestinationServer(ctx, k8sClient, application)
+	if err != nil {
+		return fmt.Errorf("failed to resolve destination server: %w", err)
+	}
 
 	logger = logger.WithValues(
 		"destinationServer", destServer,
 	)
-
-	if destNamespace == "" || destServer == "" {
-		return fmt.Errorf("destination namespace and server must be specified")
-	}
 
 	if serverUrlDomain == "" {
 		logger.Info(fmt.Sprintf("Failed to fetch environment variable %s, validation might fail if server is not a URL", common.ClusterDomainEnvVarKey))
