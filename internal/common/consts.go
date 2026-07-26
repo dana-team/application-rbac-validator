@@ -16,6 +16,7 @@ const (
 	SecretNameSuffix                 = "cluster-secret"
 	ArgoCDSecretTypeLabelKey         = "argocd.argoproj.io/secret-type"
 	ArgoCDSecretTypeClusterValue     = "cluster"
+	LabelValueTrue                   = "true"
 )
 
 var (

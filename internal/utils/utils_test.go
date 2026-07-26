@@ -15,6 +15,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	sampleServerName          = "test-server"
+	sampleNamespaceName       = "test-namespace"
+	sampleNamespaceObjectName = "test-ns"
+	sampleClusterName         = "my-cluster"
+	inClusterAlias            = "in-cluster"
+	inClusterServerURL        = "kubernetes.svc.cluster.local"
+	sampleFQDNServerURL       = "https://api.my-cluster.domain.example.com:6443"
+	sampleClusterServerURL    = "https://api.my-cluster.example.com:6443"
+	sampleArgoInstanceName    = "argo-instance"
+	sampleUser                = "user1"
+	sampleArgoCDNamespace     = "argocd"
+)
+
 func TestIsNotSpecUpdate(t *testing.T) {
 	testCases := []struct {
 		name     string
@@ -27,16 +41,16 @@ func TestIsNotSpecUpdate(t *testing.T) {
 			oldApp: &argoprojv1alpha1.Application{
 				Spec: argoprojv1alpha1.ApplicationSpec{
 					Destination: argoprojv1alpha1.ApplicationDestination{
-						Server:    "test-server",
-						Namespace: "test-namespace",
+						Server:    sampleServerName,
+						Namespace: sampleNamespaceName,
 					},
 				},
 			},
 			newApp: &argoprojv1alpha1.Application{
 				Spec: argoprojv1alpha1.ApplicationSpec{
 					Destination: argoprojv1alpha1.ApplicationDestination{
-						Server:    "test-server",
-						Namespace: "test-namespace",
+						Server:    sampleServerName,
+						Namespace: sampleNamespaceName,
 					},
 				},
 			},
@@ -47,15 +61,15 @@ func TestIsNotSpecUpdate(t *testing.T) {
 			oldApp: &argoprojv1alpha1.Application{
 				Spec: argoprojv1alpha1.ApplicationSpec{
 					Destination: argoprojv1alpha1.ApplicationDestination{
-						Server:    "test-server",
-						Namespace: "test-namespace",
+						Server:    sampleServerName,
+						Namespace: sampleNamespaceName,
 					},
 				},
 			},
 			newApp: &argoprojv1alpha1.Application{
 				Spec: argoprojv1alpha1.ApplicationSpec{
 					Destination: argoprojv1alpha1.ApplicationDestination{
-						Server:    "test-server",
+						Server:    sampleServerName,
 						Namespace: "different-namespace",
 					},
 				},
@@ -82,7 +96,7 @@ func TestValidateServerUrlFormat(t *testing.T) {
 	}{
 		{
 			name:     "should return true for valid URL",
-			server:   "https://api.my-cluster.domain.example.com:6443",
+			server:   sampleFQDNServerURL,
 			expected: true,
 		},
 		{
@@ -125,8 +139,8 @@ func TestExtractClusterName(t *testing.T) {
 	}{
 		{
 			name:     "should extract cluster name from valid URL",
-			server:   "https://api.my-cluster.domain.example.com:6443",
-			expected: "my-cluster",
+			server:   sampleFQDNServerURL,
+			expected: sampleClusterName,
 		},
 		{
 			name:     "should return input for invalid URL",
@@ -135,13 +149,13 @@ func TestExtractClusterName(t *testing.T) {
 		},
 		{
 			name:     "should return input for in-cluster value",
-			server:   "in-cluster",
-			expected: "in-cluster",
+			server:   inClusterAlias,
+			expected: inClusterAlias,
 		},
 		{
 			name:     "should return input for kubernetes.svc.cluster.local",
-			server:   "kubernetes.svc.cluster.local",
-			expected: "in-cluster",
+			server:   inClusterServerURL,
+			expected: inClusterAlias,
 		},
 	}
 
@@ -164,9 +178,9 @@ func TestBuildServerUrl(t *testing.T) {
 	}{
 		{
 			name:        "should build server URL correctly",
-			clusterName: "my-cluster",
+			clusterName: sampleClusterName,
 			domain:      "example.com",
-			expected:    "https://api.my-cluster.example.com:6443",
+			expected:    sampleClusterServerURL,
 		},
 		{
 			name:        "should build server URL with different domain",
@@ -199,14 +213,14 @@ func TestGetCurrentNamespace(t *testing.T) {
 			fileContent: "test-namespace\n",
 			createFile:  true,
 			expectError: false,
-			expectedNs:  "test-namespace",
+			expectedNs:  sampleNamespaceName,
 		},
 		{
 			name:        "should trim whitespace",
 			fileContent: "  test-namespace  \n",
 			createFile:  true,
 			expectError: false,
-			expectedNs:  "test-namespace",
+			expectedNs:  sampleNamespaceName,
 		},
 		{
 			name:        "should return error when file doesn't exist",
@@ -254,13 +268,13 @@ func TestIsManagementApplication(t *testing.T) {
 	}{
 		{
 			name:             "should return true for management application",
-			argoInstanceName: "argo-instance",
+			argoInstanceName: sampleArgoInstanceName,
 			applicationName:  "argo-instance-mgmt",
 			expected:         true,
 		},
 		{
 			name:             "should return false for non-management application",
-			argoInstanceName: "argo-instance",
+			argoInstanceName: sampleArgoInstanceName,
 			applicationName:  "my-app",
 			expected:         false,
 		},
@@ -272,7 +286,7 @@ func TestIsManagementApplication(t *testing.T) {
 		},
 		{
 			name:             "should return false for empty application name",
-			argoInstanceName: "argo-instance",
+			argoInstanceName: sampleArgoInstanceName,
 			applicationName:  "",
 			expected:         false,
 		},
@@ -296,17 +310,17 @@ func TestIsInCluster(t *testing.T) {
 	}{
 		{
 			name:      "should return true for in-cluster",
-			serverUrl: "in-cluster",
+			serverUrl: inClusterAlias,
 			expected:  true,
 		},
 		{
 			name:      "should return true for kubernetes.svc.cluster.local",
-			serverUrl: "kubernetes.svc.cluster.local",
+			serverUrl: inClusterServerURL,
 			expected:  true,
 		},
 		{
 			name:      "should return false for external cluster",
-			serverUrl: "https://api.my-cluster.example.com:6443",
+			serverUrl: sampleClusterServerURL,
 			expected:  false,
 		},
 	}
@@ -333,13 +347,13 @@ func TestBypassLabelExists(t *testing.T) {
 			name: "should return true for global bypass label",
 			namespace: &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-ns",
+					Name: sampleNamespaceObjectName,
 					Labels: map[string]string{
-						common.AdminBypassLabel: "true",
+						common.AdminBypassLabel: common.LabelValueTrue,
 					},
 				},
 			},
-			clusterName: "my-cluster",
+			clusterName: sampleClusterName,
 			expected:    true,
 			expectError: false,
 		},
@@ -347,13 +361,13 @@ func TestBypassLabelExists(t *testing.T) {
 			name: "should return true for cluster-specific bypass label",
 			namespace: &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-ns",
+					Name: sampleNamespaceObjectName,
 					Labels: map[string]string{
-						common.AdminBypassLabel + "-my-cluster": "true",
+						common.AdminBypassLabel + "-my-cluster": common.LabelValueTrue,
 					},
 				},
 			},
-			clusterName: "my-cluster",
+			clusterName: sampleClusterName,
 			expected:    true,
 			expectError: false,
 		},
@@ -361,13 +375,13 @@ func TestBypassLabelExists(t *testing.T) {
 			name: "should return false for different cluster label",
 			namespace: &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-ns",
+					Name: sampleNamespaceObjectName,
 					Labels: map[string]string{
-						common.AdminBypassLabel + "-other-cluster": "true",
+						common.AdminBypassLabel + "-other-cluster": common.LabelValueTrue,
 					},
 				},
 			},
-			clusterName: "my-cluster",
+			clusterName: sampleClusterName,
 			expected:    false,
 			expectError: false,
 		},
@@ -375,13 +389,13 @@ func TestBypassLabelExists(t *testing.T) {
 			name: "should return false when label value is not true",
 			namespace: &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-ns",
+					Name: sampleNamespaceObjectName,
 					Labels: map[string]string{
 						common.AdminBypassLabel: "false",
 					},
 				},
 			},
-			clusterName: "my-cluster",
+			clusterName: sampleClusterName,
 			expected:    false,
 			expectError: false,
 		},
@@ -389,11 +403,11 @@ func TestBypassLabelExists(t *testing.T) {
 			name: "should return false when no labels present",
 			namespace: &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:   "test-ns",
+					Name:   sampleNamespaceObjectName,
 					Labels: map[string]string{},
 				},
 			},
-			clusterName: "my-cluster",
+			clusterName: sampleClusterName,
 			expected:    false,
 			expectError: false,
 		},
@@ -430,7 +444,7 @@ func TestFormatFileSafeServerURL(t *testing.T) {
 	}{
 		{
 			name:      "should remove https protocol and replace special chars",
-			serverURL: "https://api.my-cluster.domain.example.com:6443",
+			serverURL: sampleFQDNServerURL,
 			expected:  "my-cluster-domain-example-com-6443",
 		},
 		{
@@ -445,8 +459,8 @@ func TestFormatFileSafeServerURL(t *testing.T) {
 		},
 		{
 			name:      "should handle simple cluster name",
-			serverURL: "my-cluster",
-			expected:  "my-cluster",
+			serverURL: sampleClusterName,
+			expected:  sampleClusterName,
 		},
 	}
 
@@ -529,7 +543,7 @@ func TestFetchArgoInstanceName(t *testing.T) {
 			configMap: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      common.ArgoInstanceConfigMapName,
-					Namespace: "test-namespace",
+					Namespace: sampleNamespaceName,
 				},
 				Data: map[string]string{
 					common.ArgoInstanceNameConfigMapKey: "my-argo-instance",
@@ -543,7 +557,7 @@ func TestFetchArgoInstanceName(t *testing.T) {
 			configMap: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      common.ArgoInstanceConfigMapName,
-					Namespace: "test-namespace",
+					Namespace: sampleNamespaceName,
 				},
 				Data: map[string]string{},
 			},
@@ -586,35 +600,35 @@ func TestFetchArgoInstanceUsers(t *testing.T) {
 			configMap: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      common.ArgoInstanceConfigMapName,
-					Namespace: "test-namespace",
+					Namespace: sampleNamespaceName,
 				},
 				Data: map[string]string{
 					common.ArgoInstanceUsersConfigMapKey: "user1,user2,user3",
 				},
 			},
 			expectError: false,
-			expected:    []string{"user1", "user2", "user3"},
+			expected:    []string{sampleUser, "user2", "user3"},
 		},
 		{
 			name: "should fetch single user",
 			configMap: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      common.ArgoInstanceConfigMapName,
-					Namespace: "test-namespace",
+					Namespace: sampleNamespaceName,
 				},
 				Data: map[string]string{
-					common.ArgoInstanceUsersConfigMapKey: "user1",
+					common.ArgoInstanceUsersConfigMapKey: sampleUser,
 				},
 			},
 			expectError: false,
-			expected:    []string{"user1"},
+			expected:    []string{sampleUser},
 		},
 		{
 			name: "should return error when key missing",
 			configMap: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      common.ArgoInstanceConfigMapName,
-					Namespace: "test-namespace",
+					Namespace: sampleNamespaceName,
 				},
 				Data: map[string]string{},
 			},
@@ -665,13 +679,13 @@ func TestFetchClusterToken(t *testing.T) {
 			configMap: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      common.ClusterTokensConfigMapName,
-					Namespace: "test-namespace",
+					Namespace: sampleNamespaceName,
 				},
 				Data: map[string]string{
 					"my-cluster-example-com-6443-token": "test-token",
 				},
 			},
-			serverURL:   "https://api.my-cluster.example.com:6443",
+			serverURL:   sampleClusterServerURL,
 			expectError: false,
 			expected:    "test-token",
 		},
@@ -680,11 +694,11 @@ func TestFetchClusterToken(t *testing.T) {
 			configMap: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      common.ClusterTokensConfigMapName,
-					Namespace: "test-namespace",
+					Namespace: sampleNamespaceName,
 				},
 				Data: map[string]string{},
 			},
-			serverURL:   "https://api.my-cluster.example.com:6443",
+			serverURL:   sampleClusterServerURL,
 			expectError: true,
 		},
 	}
@@ -737,22 +751,22 @@ func TestResolveDestinationServer(t *testing.T) {
 			app: &argoprojv1alpha1.Application{
 				Spec: argoprojv1alpha1.ApplicationSpec{
 					Destination: argoprojv1alpha1.ApplicationDestination{
-						Name: "in-cluster",
+						Name: inClusterAlias,
 					},
 				},
 			},
-			expected:    "kubernetes.svc.cluster.local",
+			expected:    inClusterServerURL,
 			expectError: false,
 		},
 		{
 			name: "should return server from secret if name is set",
 			app: &argoprojv1alpha1.Application{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "argocd",
+					Namespace: sampleArgoCDNamespace,
 				},
 				Spec: argoprojv1alpha1.ApplicationSpec{
 					Destination: argoprojv1alpha1.ApplicationDestination{
-						Name: "my-cluster",
+						Name: sampleClusterName,
 					},
 				},
 			},
@@ -760,13 +774,13 @@ func TestResolveDestinationServer(t *testing.T) {
 				&corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "my-cluster-secret",
-						Namespace: "argocd",
+						Namespace: sampleArgoCDNamespace,
 						Labels: map[string]string{
 							common.ArgoCDSecretTypeLabelKey: common.ArgoCDSecretTypeClusterValue,
 						},
 					},
 					Data: map[string][]byte{
-						"name":   []byte("my-cluster"),
+						"name":   []byte(sampleClusterName),
 						"server": []byte("https://my-cluster-server.com"),
 					},
 				},
@@ -778,7 +792,7 @@ func TestResolveDestinationServer(t *testing.T) {
 			name: "should fail if secret not found",
 			app: &argoprojv1alpha1.Application{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "argocd",
+					Namespace: sampleArgoCDNamespace,
 				},
 				Spec: argoprojv1alpha1.ApplicationSpec{
 					Destination: argoprojv1alpha1.ApplicationDestination{

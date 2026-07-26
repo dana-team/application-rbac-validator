@@ -148,7 +148,7 @@ func BypassLabelExists(ctx context.Context,
 // isBypassLabelValid checks if the given labels contain a valid AdminBypassLabel for the specified clusterName.
 func isBypassLabelValid(labels map[string]string, clusterName string) bool {
 	for key, value := range labels {
-		if strings.HasPrefix(key, common.AdminBypassLabel) && value == "true" {
+		if strings.HasPrefix(key, common.AdminBypassLabel) && value == common.LabelValueTrue {
 			suffix := strings.TrimPrefix(key, common.AdminBypassLabel)
 
 			switch suffix {
@@ -396,5 +396,5 @@ func ShouldBypassOptimization(secret *corev1.Secret) bool {
 		return false
 	}
 
-	return strings.ToLower(bypassValue) == "true"
+	return strings.ToLower(bypassValue) == common.LabelValueTrue
 }
