@@ -42,7 +42,7 @@ var _ = Describe("Application Controller", func() {
 					Name: namespaceName,
 					Labels: map[string]string{
 						// Bypass webhook since tests are for controller
-						common.AdminBypassLabel: "true",
+						common.AdminBypassLabel: common.LabelValueTrue,
 					},
 				},
 			})).To(Succeed())
@@ -101,7 +101,7 @@ var _ = Describe("Application Controller", func() {
 				Name:      secretName,
 				Namespace: namespaceName,
 			}, secret)).To(Succeed())
-			secret.Data[common.ClusterResourcesKey] = []byte("true")
+			secret.Data[common.ClusterResourcesKey] = []byte(common.LabelValueTrue)
 			Expect(k8sClient.Update(context.Background(), secret)).To(Succeed())
 			By("Creating an Application resource")
 			application := testutils.GenerateTestApplication(
@@ -138,7 +138,7 @@ var _ = Describe("Application Controller", func() {
 			if secret.Labels == nil {
 				secret.Labels = make(map[string]string)
 			}
-			secret.Labels[common.BypassOptimizationLabel] = "true"
+			secret.Labels[common.BypassOptimizationLabel] = common.LabelValueTrue
 			Expect(k8sClient.Update(context.Background(), secret)).To(Succeed())
 			By("Creating an Application resource")
 			application := testutils.GenerateTestApplication(
@@ -239,7 +239,7 @@ var _ = Describe("Application Controller", func() {
 					Name: nonPrefixedNamespace,
 					Labels: map[string]string{
 						// Bypass webhook since tests are for controller
-						common.AdminBypassLabel: "true",
+						common.AdminBypassLabel: common.LabelValueTrue,
 					},
 				},
 			})).To(Succeed())
