@@ -75,7 +75,7 @@ func (r *ApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// Therefore, we skip processing applications that are being deleted.
 	if !app.DeletionTimestamp.IsZero() {
 		log.Info("application is being deleted, ignoring...", "app", app.Name)
-		metrics.DeleteApplicationOptimizationStatus(app.Name, app.Namespace, resolvedServer)
+		metrics.DeleteApplicationOptimizationStatus(app.Name, app.Namespace)
 		return ctrl.Result{}, nil
 	}
 	return ctrl.Result{}, handlers.HandleCreateOrUpdate(log, ctx, r.Client, app)
