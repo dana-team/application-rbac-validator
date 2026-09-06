@@ -24,7 +24,6 @@ import (
 	"github.com/dana-team/application-rbac-validator/internal/common"
 	"github.com/dana-team/application-rbac-validator/internal/handlers"
 	"github.com/dana-team/application-rbac-validator/internal/utils"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,7 +33,7 @@ import (
 
 // SetupApplicationWebhookWithManager registers the webhook for Application in the manager.
 func SetupApplicationWebhookWithManager(mgr ctrl.Manager, serverUrlDomain string) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&argoprojv1alpha1.Application{}).
+	return ctrl.NewWebhookManagedBy(mgr, &argoprojv1alpha1.Application{}).
 		WithValidator(&ApplicationCustomValidator{Client: mgr.GetClient(), ServerUrlDomain: serverUrlDomain}).
 		Complete()
 }
@@ -49,29 +48,16 @@ type ApplicationCustomValidator struct {
 }
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type Application.
-func (v *ApplicationCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *ApplicationCustomValidator) ValidateCreate(ctx context.Context, application *argoprojv1alpha1.Application) (admission.Warnings, error) {
 	logger := zap.New().WithName("webhook")
-	application, ok := obj.(*argoprojv1alpha1.Application)
-	if !ok {
-		return nil, fmt.Errorf("expected a Application object but got %T", obj)
-	}
 	logger.Info("Validation for Application upon creation", "name", application.GetName())
 
 	return nil, validateApplication(ctx, v.Client, v.destinationClusterClient, application, v.ServerUrlDomain)
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type Application.
-func (v *ApplicationCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+func (v *ApplicationCustomValidator) ValidateUpdate(ctx context.Context, oldApplication, newApplication *argoprojv1alpha1.Application) (admission.Warnings, error) {
 	logger := zap.New().WithName("webhook")
-	newApplication, ok := newObj.(*argoprojv1alpha1.Application)
-	if !ok {
-		return nil, fmt.Errorf("expected a Application object for the newObj but got %T", newObj)
-	}
-	oldApplication, ok := oldObj.(*argoprojv1alpha1.Application)
-	if !ok {
-		return nil, fmt.Errorf("expected a Application object for the oldObj but got %T", oldObj)
-	}
-
 	logger.Info("Validation for Application upon update", "name", newApplication.GetName())
 
 	if utils.IsNotSpecUpdate(oldApplication, newApplication) {
@@ -83,12 +69,8 @@ func (v *ApplicationCustomValidator) ValidateUpdate(ctx context.Context, oldObj,
 }
 
 // ValidateDelete triggers a cleanup of the application destination secret.
-func (v *ApplicationCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *ApplicationCustomValidator) ValidateDelete(ctx context.Context, application *argoprojv1alpha1.Application) (admission.Warnings, error) {
 	log := zap.New().WithName("webhook")
-	application, ok := obj.(*argoprojv1alpha1.Application)
-	if !ok {
-		return nil, fmt.Errorf("expected a Application object but got %T", obj)
-	}
 	log.Info("Cleaning up", "name", application.GetName())
 	return nil, handlers.HandleDelete(log, ctx, v.Client, application)
 }
