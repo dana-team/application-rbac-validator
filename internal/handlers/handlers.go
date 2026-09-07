@@ -72,7 +72,7 @@ func HandleDelete(log logr.Logger, ctx context.Context, cl client.Client, app *a
 	if err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("secret not found, skipping namespace cleanup", "app", app.Name)
-			metrics.DeleteApplicationOptimizationStatus(app.Name, app.Namespace, app.Spec.Destination.Server)
+			metrics.DeleteApplicationOptimizationStatus(app.Name, app.Namespace)
 			return nil
 		}
 		log.Error(err, "Failed to fetch secret for application", "app", app.Name)
@@ -80,7 +80,7 @@ func HandleDelete(log logr.Logger, ctx context.Context, cl client.Client, app *a
 	}
 	if utils.ShouldBypassOptimization(secret) {
 		log.Info("Destination secret has bypass label, skipping...", "app", app.Name, "cluster", app.Spec.Destination.Server)
-		metrics.DeleteApplicationOptimizationStatus(app.Name, app.Namespace, app.Spec.Destination.Server)
+		metrics.DeleteApplicationOptimizationStatus(app.Name, app.Namespace)
 		return nil
 	}
 	destinationNS := app.Spec.Destination.Namespace
@@ -107,7 +107,7 @@ func HandleDelete(log logr.Logger, ctx context.Context, cl client.Client, app *a
 
 		log.Info("Removed namespace from secret", "secretName", secret.Name, "namespace", destinationNS)
 	}
-	metrics.DeleteApplicationOptimizationStatus(app.Name, app.Namespace, app.Spec.Destination.Server)
+	metrics.DeleteApplicationOptimizationStatus(app.Name, app.Namespace)
 	return nil
 
 }

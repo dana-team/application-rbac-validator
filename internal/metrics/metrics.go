@@ -28,6 +28,9 @@ func ObserveApplicationOptimizationStatus(name, appNamespace, destinationNamespa
 }
 
 // DeleteApplicationOptimizationStatus deletes the optimization metric for the given application.
-func DeleteApplicationOptimizationStatus(name, appNamespace, destination string) {
-	applicationOptimizationStatus.DeleteLabelValues(name, appNamespace, destination)
+func DeleteApplicationOptimizationStatus(name, appNamespace string) {
+	applicationOptimizationStatus.DeletePartialMatch(prometheus.Labels{
+		"name":                  name,
+		"application_namespace": appNamespace,
+	})
 }
